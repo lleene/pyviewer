@@ -6,7 +6,7 @@ from PySide2.QtCore import Qt, QCoreApplication
 from PySide2.QtQml import QQmlApplicationEngine
 
 
-class MainWindow(QApplication):
+class MainWindow(QQmlApplicationEngine):
     def __init__(self):
         super().__init__()
 
