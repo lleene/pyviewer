@@ -2,8 +2,9 @@ import QtQuick.Controls 2.4
 import QtQuick 2.1
 
 ApplicationWindow {
-  flags: Qt.Window | Qt.FramelessWindowHint 
-  title: "Reviewer Gallery"
+  id: main
+  flags: Qt.Window | Qt.FramelessWindowHint
+  title: qsTr("Reviewer Gallery")
   visible: true
   width: 1600
   height: 1000
@@ -15,7 +16,7 @@ ApplicationWindow {
     Keys.enabled: true
     Keys.onEscapePressed: Qt.quit()
     Keys.onLeftPressed: grid.page = Math.max(grid.page-1,0)
-    Keys.onRightPressed: grid.page = Math.min(grid.page+1,10)
+    Keys.onRightPressed: grid.page = Math.min(grid.page+1,4)
   }
 
   Grid {
@@ -26,8 +27,10 @@ ApplicationWindow {
     columnSpacing: 5
     columns: 4
     rows: 2
+    property var paths: viewer.path.split(" ")
 
     Repeater {
+      id: repeater
       model: grid.columns * grid.rows;
       delegate: delegateGridImage
     }
@@ -41,7 +44,7 @@ ApplicationWindow {
         Image {
           anchors.fill: parent
           fillMode: Image.PreserveAspectCrop
-          source: "data/image" + ( index + grid.page*grid.columns*grid.rows ) + ".png"
+          source: index+grid.page*(grid.rows*grid.columns) >= grid.paths.length ?  "" : grid.paths[index+grid.page*(grid.rows*grid.columns)]
         }
       }
     }
