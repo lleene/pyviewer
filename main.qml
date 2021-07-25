@@ -17,6 +17,17 @@ ApplicationWindow {
     Keys.onEscapePressed: Qt.quit()
     Keys.onLeftPressed: grid.page = Math.max(grid.page-1,0)
     Keys.onRightPressed: grid.page = Math.min(grid.page+1,4)
+    Keys.onTabPressed: viewer.updateTagFilter(false)
+    Keys.onSpacePressed: viewer.updateTagFilter(true)
+    Keys.onBacktabPressed: viewer.undoLastFilter()
+    Keys.onUpPressed: {
+      viewer.loadNextArchive(1);
+      grid.page = 0
+    }
+    Keys.onDownPressed: {
+      viewer.loadNextArchive(-1);
+      grid.page = 0
+    }
   }
 
   Grid {

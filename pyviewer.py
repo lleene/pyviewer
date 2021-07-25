@@ -4,12 +4,12 @@ import sys
 from imageloader import ImageLoader
 
 from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QCoreApplication, Qt, QObject, Property, Signal
+from PySide2.QtCore import QCoreApplication, Qt, QObject, Property, Signal, Slot
 from PySide2.QtQml import QQmlApplicationEngine
 
 
 class PyViewer(QObject):
-    pathChanged = Signal(str)
+    pathChanged = Signal()
 
     def __init__(self, parent=None):
         super(PyViewer, self).__init__(parent)
@@ -18,17 +18,40 @@ class PyViewer(QObject):
             ["data/image" + str(index) + ".png" for index in range(0, 25)]
         )
 
-    def loadFileMap(self, root_dir):
-        self.imageloader.loadArtistMap(root_dir)
-        file_list = self.imageloader.loadViews()
+    def extractFiles(self):
+        self._files = ""
+        self.pathChanged.emit()
+        file_list = self.imageloader.extractCurrentIndex()
         self._files = " ".join(self.imageloader.orderFileList(file_list))
+        self.pathChanged.emit()
+
+    def loadFileMap(self, root_dir):
+        self.imageloader.loadMedia(root_dir)
+        self.extractFiles()
 
     @Property(str, notify=pathChanged)
     def path(self):
         return self._files
 
+    @Slot(int)
+    def loadNextArchive(self, direction):
+        self.imageloader.artist_index = (
+            self.imageloader.artist_index + direction
+        ) % len(self.imageloader.artists)
+        self.extractFiles()
 
-def main():
+    @Slot(bool)
+    def updateTagFilter(self, filter_bool):
+        self.imageloader.updateTagFilter(filter_bool)
+        self.extractFiles()
+
+    @Slot()
+    def undoLastFilter(self):
+        self.imageloader.undoLastFilter()
+        self.extractFiles()
+
+
+def main(root_dir):
     print("Starting up...")
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
@@ -36,7 +59,7 @@ def main():
     engine = QQmlApplicationEngine()
 
     pyviewer = PyViewer()
-    pyviewer.loadFileMap("/mnt/media/Media/doujin_archive_2")
+    pyviewer.loadFileMap(root_dir)
 
     engine.rootContext().setContextProperty("viewer", pyviewer)
     engine.load("main.qml")
@@ -44,8 +67,11 @@ def main():
     print("Done!")
     if not engine.rootObjects():
         sys.exit(-1)
-    sys.exit(app.exec_())
+
+    ret = app.exec_()
+    pyviewer.imageloader.saveTagFilter()
+    sys.exit(ret)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])
