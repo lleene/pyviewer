@@ -2,4 +2,5 @@
 1. add unit tests and happy path
 2. add documentation
 3. elaborate readme.md
-4. add any other features
+4. add even logging and other features
+5. handle exceptions and log broken images

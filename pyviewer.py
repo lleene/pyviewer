@@ -3,9 +3,9 @@
 import sys
 from imageloader import ImageLoader
 
-from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QCoreApplication, Qt, QObject, Property, Signal, Slot
-from PySide2.QtQml import QQmlApplicationEngine
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QCoreApplication, Qt, QObject, Property, Signal, Slot
+from PySide6.QtQml import QQmlApplicationEngine
 
 
 class PyViewer(QObject):
@@ -53,8 +53,6 @@ class PyViewer(QObject):
 
 def main(root_dir):
     print("Starting up...")
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
     app = QApplication(sys.argv)
     engine = QQmlApplicationEngine()
 
@@ -62,14 +60,15 @@ def main(root_dir):
     pyviewer.loadFileMap(root_dir)
 
     engine.rootContext().setContextProperty("viewer", pyviewer)
-    engine.load("main.qml")
+    engine.load("pyviewer.qml")
 
     print("Done!")
     if not engine.rootObjects():
         sys.exit(-1)
 
-    ret = app.exec_()
+    ret = app.exec()
     pyviewer.imageloader.saveTagFilter()
+    pyviewer.imageloader.reportFilterState()
     sys.exit(ret)
 
 

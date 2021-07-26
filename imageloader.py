@@ -60,6 +60,10 @@ class ImageLoader:
     def currentArtist(self):
         return self.artists[self.artist_index]
 
+    def reportFilterState(self):
+        print( "Exit on:", self.currentArtist())
+        print( "Tag state:", len(self._tagfilter), "filtered,", len(self.artists), "remain")
+
     def _loadTagFilter(self):
         if os.path.isfile("tagfilter.json"):
             with open("tagfilter.json", "r") as filter_file:
