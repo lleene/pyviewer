@@ -1,7 +1,7 @@
-# Custom
-data
-artist.map
-tagfilter.json
+# PyViewer
+data/tmp*
+artist.map*
+tagfilter.json*
 
 # ---> Python
 # Byte-compiled / optimized / DLL files
@@ -142,4 +142,3 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-

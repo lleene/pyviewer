@@ -1,7 +1,7 @@
 #!/bin/env python3
 
 import sys
-from imageloader import ImageLoader
+from pyviewer import ImageLoader
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QCoreApplication, Qt, QObject, Property, Signal, Slot

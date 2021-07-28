@@ -8,15 +8,16 @@ from tempfile import TemporaryDirectory
 
 
 class ImageLoader:
-    def __init__(self):
+    def __init__(self, tempdir=TemporaryDirectory()):
         self.artist_index = 0
-        self._temp_dir = TemporaryDirectory()
         self.artists = list()
         self._artist_map = dict()
         self._tagfilter = dict()
         self._lasttag = ""
-        for index in range(0, 3):
-            os.mkdir(os.path.join(self._temp_dir.name, str(index)))
+        self._temp_dir = tempdir
+        self._subdirs = [
+            TemporaryDirectory(dir=self._temp_dir.name).name for index in range(4)
+        ]
 
     def _fetchMetaFile(self, file_path):
         with ZipFile(file_path, "r") as archive:
@@ -41,7 +42,7 @@ class ImageLoader:
     def _generateArtistMap(self, root_dir):
         meta_list = []
         for archive in glob.glob(root_dir + "/*.zip"):
-            meta_data = self._fetchMetaFile(archive, self._temp_dir.name)
+            meta_data = self._fetchMetaFile(archive)
             meta_data.update({"path": archive})
             meta_list.append(meta_data)
         return {
@@ -61,16 +62,18 @@ class ImageLoader:
         return self.artists[self.artist_index]
 
     def reportFilterState(self):
-        print( "Exit on:", self.currentArtist())
-        print( "Tag state:", len(self._tagfilter), "filtered,", len(self.artists), "remain")
+        print("Exit on:", self.currentArtist())
+        print(
+            "Tag state:", len(self._tagfilter), "filtered,", len(self.artists), "remain"
+        )
 
-    def _loadTagFilter(self):
-        if os.path.isfile("tagfilter.json"):
-            with open("tagfilter.json", "r") as filter_file:
+    def _loadTagFilter(self, file_path="tagfilter.json"):
+        if os.path.isfile(file_path):
+            with open(file_path, "r") as filter_file:
                 self._tagfilter = json.load(filter_file)
 
-    def saveTagFilter(self):
-        with open("tagfilter.json", "w") as filter_file:
+    def saveTagFilter(self, file_path="tagfilter.json"):
+        with open(file_path, "w") as filter_file:
             json.dump(self._tagfilter, filter_file)
 
     def updateTagFilter(self, filter_bool):
@@ -86,13 +89,13 @@ class ImageLoader:
         self._lasttag = ""
         self.artists = [key for key in self._artist_map if key not in self._tagfilter]
 
-    def _loadArtistMap(self, root_dir):
-        if os.path.isfile("artist.map"):
-            with open("artist.map", "r") as map_file:
+    def _loadArtistMap(self, root_dir, file_path="artist.map"):
+        if os.path.isfile(file_path):
+            with open(file_path, "r") as map_file:
                 self._artist_map = json.load(map_file)
         else:
-            self._artist_map = self._generateArtistMap(root_dir, self._temp_dir.name)
-            with open("artist.map", "w") as map_file:
+            self._artist_map = self._generateArtistMap(root_dir)
+            with open(file_path, "w") as map_file:
                 json.dump(self._artist_map, map_file)
         self.artists = [key for key in self._artist_map if key not in self._tagfilter]
 
@@ -104,12 +107,13 @@ class ImageLoader:
         artist_tag = self.artists[self.artist_index]
         archive_list = self._artist_map[artist_tag]
         file_list = list()
-        for index in range(0, min(len(archive_list), 3)):
-            dir_name = os.path.join(self._temp_dir.name, str(index))
+        for index, subdir in enumerate(self._subdirs):
+            if index >= len(archive_list):
+                break
             file_list.append(
                 [
-                    dir_name + "/" + file_name
-                    for file_name in self._fetchImageFile(archive_list[index], dir_name)
+                    subdir + "/" + file_name
+                    for file_name in self._fetchImageFile(archive_list[index], subdir)
                 ]
             )
         return file_list
@@ -121,11 +125,10 @@ class ImageLoader:
         set_index = [modulo] * len(file_list)
         ordered_list = list()
         for index in range(
-            0,
             min(
-                math.floor(sum(set_size) / modulo),
-                math.floor(max_image_count / modulo) - 1,
-            ),
+                math.ceil(sum(set_size) / modulo),
+                math.ceil(max_image_count / modulo) - 1,
+            )
         ):
             if set_index[index % len(set_size)] < set_size[index % len(set_size)]:
                 ordered_list.extend(

@@ -6,6 +6,7 @@ ApplicationWindow {
   flags: Qt.Window | Qt.FramelessWindowHint
   title: qsTr("Reviewer Gallery")
   visible: true
+  visibility: Window.FullScreen
   width: 1600
   height: 1000
 
@@ -17,9 +18,18 @@ ApplicationWindow {
     Keys.onEscapePressed: Qt.quit()
     Keys.onLeftPressed: grid.page = Math.max(grid.page-1,0)
     Keys.onRightPressed: grid.page = Math.min(grid.page+1,4)
-    Keys.onTabPressed: viewer.updateTagFilter(false)
-    Keys.onSpacePressed: viewer.updateTagFilter(true)
-    Keys.onBacktabPressed: viewer.undoLastFilter()
+    Keys.onTabPressed: {
+      viewer.updateTagFilter(false);
+      grid.page = 0
+    }
+    Keys.onSpacePressed: {
+      viewer.updateTagFilter(true);
+      grid.page = 0
+    }
+    Keys.onBacktabPressed: {
+      viewer.undoLastFilter();
+      grid.page = 0
+    }
     Keys.onUpPressed: {
       viewer.loadNextArchive(1);
       grid.page = 0
