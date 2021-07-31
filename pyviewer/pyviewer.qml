@@ -48,7 +48,7 @@ ApplicationWindow {
     columnSpacing: 5
     columns: 4
     rows: 2
-    property var paths: viewer.path.split(" ")
+    property var paths: viewer.path.split("::")
 
     Repeater {
       id: repeater

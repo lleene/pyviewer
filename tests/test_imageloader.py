@@ -6,7 +6,8 @@ class dummy_tmp_dir:
         self.name = dirname
 
 
-data_dir = dummy_tmp_dir("data")
+mock_data_dir = "tests/data"
+data_dir = dummy_tmp_dir(mock_data_dir)
 
 # We keep this object uninitialized to avoid test dependancy
 loader = ImageLoader(data_dir)
@@ -38,15 +39,19 @@ def test_ordering():
 
 
 def test_loadMedia():
-    itialized_loader = ImageLoader(data_dir)
-    itialized_loader.loadMedia("data")
-    assert itialized_loader.artists == ["name"]
-    assert itialized_loader._artist_map["name"] == ["{}/test.zip".format(data_dir.name)]
+    initialized_loader = ImageLoader(data_dir)
+    initialized_loader.loadMedia(mock_data_dir)
+    assert initialized_loader.artists == ["name"]
+    assert initialized_loader._artist_map["name"] == [
+        "{}/test.zip".format(data_dir.name)
+    ]
+    initialized_loader._cleanTempDirs()
 
 
 def test_extraction():
     initialized_loader = ImageLoader(data_dir)
-    initialized_loader.loadMedia("data")
+    initialized_loader.loadMedia(mock_data_dir)
     file_list = initialized_loader.extractCurrentIndex()
     assert len(file_list) == 1
     assert len(file_list[0]) == 30
+    initialized_loader._cleanTempDirs()

@@ -16,8 +16,14 @@ class ImageLoader:
         self._lasttag = ""
         self._temp_dir = tempdir
         self._subdirs = [
-            TemporaryDirectory(dir=self._temp_dir.name).name for index in range(4)
+            TemporaryDirectory(dir=self._temp_dir.name) for index in range(4)
         ]
+
+    def _cleanTempDirs(self):
+        for subdir in self._subdirs:
+            subdir.cleanup()
+        if isinstance(self._temp_dir, TemporaryDirectory):
+            self._temp_dir.cleanup()
 
     def _fetchMetaFile(self, file_path):
         with ZipFile(file_path, "r") as archive:
@@ -67,12 +73,12 @@ class ImageLoader:
             "Tag state:", len(self._tagfilter), "filtered,", len(self.artists), "remain"
         )
 
-    def _loadTagFilter(self, file_path="tagfilter.json"):
+    def _loadTagFilter(self, file_path):
         if os.path.isfile(file_path):
             with open(file_path, "r") as filter_file:
                 self._tagfilter = json.load(filter_file)
 
-    def saveTagFilter(self, file_path="tagfilter.json"):
+    def _saveTagFilter(self, file_path):
         with open(file_path, "w") as filter_file:
             json.dump(self._tagfilter, filter_file)
 
@@ -89,19 +95,20 @@ class ImageLoader:
         self._lasttag = ""
         self.artists = [key for key in self._artist_map if key not in self._tagfilter]
 
-    def _loadArtistMap(self, root_dir, file_path="artist.map"):
-        if os.path.isfile(file_path):
-            with open(file_path, "r") as map_file:
-                self._artist_map = json.load(map_file)
+    def _loadArtistMap(self, media_dir):
+        map_file = os.path.join(media_dir, "mapfile.json")
+        if os.path.isfile(map_file):
+            with open(map_file, "r") as file:
+                self._artist_map = json.load(file)
         else:
-            self._artist_map = self._generateArtistMap(root_dir)
-            with open(file_path, "w") as map_file:
-                json.dump(self._artist_map, map_file)
+            self._artist_map = self._generateArtistMap(media_dir)
+            with open(map_file, "w") as file:
+                json.dump(self._artist_map, file)
         self.artists = [key for key in self._artist_map if key not in self._tagfilter]
 
-    def loadMedia(self, root_dir):
-        self._loadTagFilter()
-        self._loadArtistMap(root_dir)
+    def loadMedia(self, media_path):
+        self._loadTagFilter(os.path.join(media_path, "tagfilter.json"))
+        self._loadArtistMap(media_path)
 
     def extractCurrentIndex(self):
         artist_tag = self.artists[self.artist_index]
@@ -112,8 +119,10 @@ class ImageLoader:
                 break
             file_list.append(
                 [
-                    subdir + "/" + file_name
-                    for file_name in self._fetchImageFile(archive_list[index], subdir)
+                    subdir.name + "/" + file_name
+                    for file_name in self._fetchImageFile(
+                        archive_list[index], subdir.name
+                    )
                 ]
             )
         return file_list

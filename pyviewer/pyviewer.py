@@ -8,19 +8,17 @@ class PyViewer(QObject):
     def __init__(self, parent=None):
         super(PyViewer, self).__init__(parent)
         self.imageloader = ImageLoader()
-        self._files = " ".join(
-            ["data/image" + str(index) + ".png" for index in range(0, 25)]
-        )
+        self._files = ""
 
     def extractFiles(self):
         self._files = ""
         self.pathChanged.emit()
         file_list = self.imageloader.extractCurrentIndex()
-        self._files = " ".join(self.imageloader.orderFileList(file_list))
+        self._files = "::".join(self.imageloader.orderFileList(file_list))
         self.pathChanged.emit()
 
-    def loadFileMap(self, root_dir):
-        self.imageloader.loadMedia(root_dir)
+    def loadFileMap(self, media_path):
+        self.imageloader.loadMedia(media_path)
         self.extractFiles()
 
     @Property(str, notify=pathChanged)

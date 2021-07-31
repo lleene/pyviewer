@@ -1,40 +1,51 @@
-# -*- coding utf-8 -*-
-# !/usr/bin/env python
+#!/usr/bin/env python
 
-# setuptools imports
-from setuptools import setup
-from setuptools import find_packages
+"""The setup script."""
 
-# pyviewer imports
-from pyviewer import __version__, __author__, __email__
+from setuptools import setup, find_packages
 
-# Read requirements file
-with open("requirements.txt") as f:
-    requirements = [l for l in f.read().splitlines() if l]
+with open("README.rst") as readme_file:
+    readme = readme_file.read()
 
-# Read description file
-with open("README.md", "r") as f:
-    long_description = f.read()
+with open("HISTORY.rst") as history_file:
+    history = history_file.read()
 
+requirements = []
+
+test_requirements = [
+    "pytest>=3",
+]
 
 setup(
-    name="pyviewer",
-    version=__version__,
-    packages=find_packages(),
-    author=__author__,
-    author_email=__email__,
-    keywords=["image-viewer", "qml", "pyside6"],
-    description="Simple pyside6 image browser for archived folders",
-    long_description=long_description(),
-    url="https://github.com/lleene/pyviewer",
-    download_url="https://github.com/lleene/pyviewer/tarball/master",
-    include_package_data=True,
-    zip_safe=False,
-    install_requires=requirements,
+    author="Lieuwe Leene",
+    author_email="lieuwe@leene.dev",
+    python_requires=">=3.6",
+    classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+    ],
+    description="Simple image browser application using pyside with qml bindings.",
     entry_points={
         "console_scripts": [
-            "pyviewer = pyviewer.command:main",
-        ]
+            "pyviewer=pyviewer.cli:main",
+        ],
     },
-    license="MIT",
+    install_requires=requirements,
+    license="MIT license",
+    long_description=readme + "\n\n" + history,
+    include_package_data=True,
+    keywords=["pyviewer", "image-viewer", "qml", "pyside6"],
+    name="pyviewer",
+    packages=find_packages(include=["pyviewer", "pyviewer.*"]),
+    test_suite="tests",
+    tests_require=test_requirements,
+    url="https://github.com/lleene/pyviewer",
+    version="0.1.0",
+    zip_safe=False,
 )

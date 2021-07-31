@@ -1,6 +1,6 @@
 # PyViewer
 temp
-data/tmp*
+tests/data/tmp*
 artist.map*
 tagfilter.json*
 
