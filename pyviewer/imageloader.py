@@ -1,6 +1,6 @@
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
-from pillow import Image
+from PIL import Image
 
 import glob
 import json
@@ -41,19 +41,34 @@ class ArchiveManager:
             "media": [archive_path for archive_path in glob.glob(media_path + "/*.zip")]
         }
 
-    def validateImage(file_path):
-        try:
-            with Image.open(file_path) as file:
-                file.verify()
-                return True
-        except Exception as e:
-            return False
-
-    def checkArchive(self, archive_path):
-        for file_path in self._extractArchive(
-            archive_path, self._subdirs[0].name
+    def orderFileList(self, file_list, modulo=4, max_image_count=40):
+        for set in file_list:
+            set.sort()
+        set_size = [len(set) for set in file_list]
+        set_index = [modulo] * len(file_list)
+        ordered_list = list()
+        for index in range(
+            min(
+                math.ceil(sum(set_size) / modulo),
+                math.ceil(max_image_count / modulo) - 1,
+            )
         ):
-            self.validateImage(file_path)
+            if set_index[index % len(set_size)] < set_size[index % len(set_size)]:
+                ordered_list.extend(
+                    file_list[index % len(set_size)][
+                        set_index[index % len(set_size)]
+                        - modulo: set_index[index % len(set_size)]
+                    ]
+                )
+            else:
+                ordered_list.extend(
+                    file_list[index % len(set_size)][
+                        set_index[index % len(set_size)]
+                        - modulo: set_size[index % len(set_size)]
+                    ]
+                )
+            set_index[index % len(set_size)] += modulo
+        return ordered_list
 
 
 class ImageLoader(ArchiveManager):
@@ -115,8 +130,9 @@ class ImageLoader(ArchiveManager):
                 self._archive_map = json.load(file)
         else:
             self._archive_map = self._generateTagMap(media_dir)
-            with open(map_file, "w") as file:
-                json.dump(self._archive_map, file)
+            if os.access(os.path.join(media_dir, "mapfile.json"), os.W_OK):
+                with open(map_file, "w") as file:
+                    json.dump(self._archive_map, file)
 
     def loadMedia(self, media_path):
         self._loadTagFilter(os.path.join(media_path, "tagfilter.json"))
@@ -132,7 +148,7 @@ class ImageLoader(ArchiveManager):
                 break
             file_list.append(
                 [
-                    subdir.name + "/" + file_name
+                    os.path.join(subdir.name, file_name)
                     for file_name in self._extractArchive(
                         archive_list[index], subdir.name
                     )
@@ -140,34 +156,24 @@ class ImageLoader(ArchiveManager):
             )
         return file_list
 
-    def orderFileList(self, file_list, modulo=4, max_image_count=40):
-        for set in file_list:
-            set.sort()
-        set_size = [len(set) for set in file_list]
-        set_index = [modulo] * len(file_list)
-        ordered_list = list()
-        for index in range(
-            min(
-                math.ceil(sum(set_size) / modulo),
-                math.ceil(max_image_count / modulo) - 1,
-            )
+    def _validateImage(self, file_path):
+        with Image.open(file_path) as file:
+            file.verify()
+
+    def _checkArchive(self, archive_path):
+        for file_path in self._extractArchive(
+            archive_path, self._subdirs[0].name
         ):
-            if set_index[index % len(set_size)] < set_size[index % len(set_size)]:
-                ordered_list.extend(
-                    file_list[index % len(set_size)][
-                        set_index[index % len(set_size)]
-                        - modulo: set_index[index % len(set_size)]
-                    ]
-                )
-            else:
-                ordered_list.extend(
-                    file_list[index % len(set_size)][
-                        set_index[index % len(set_size)]
-                        - modulo: set_size[index % len(set_size)]
-                    ]
-                )
-            set_index[index % len(set_size)] += modulo
-        return ordered_list
+            self._validateImage(os.path.join(self._subdirs[0].name, file_path))
+
+    def checkMedia(self):
+        for index, tag in enumerate(self._tags):
+            self.index = index
+            for archive_path in self.archiveList:
+                try:
+                    self._checkArchive(archive_path)
+                except Exception as e:
+                    print("Error in {}: {}".format(archive_path, e))
 
     @property
     def _tags(self):

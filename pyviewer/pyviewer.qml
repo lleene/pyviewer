@@ -6,7 +6,7 @@ ApplicationWindow {
   flags: Qt.Window | Qt.FramelessWindowHint
   title: qsTr("Reviewer Gallery")
   visible: true
-  visibility: Window.FullScreen
+  // visibility: Window.FullScreen
   width: 1600
   height: 1000
 
