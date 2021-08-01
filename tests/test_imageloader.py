@@ -14,8 +14,8 @@ loader = ImageLoader(data_dir)
 
 
 def test_startup():
-    assert len(loader.artists) == 0
-    assert loader.artist_index == 0
+    assert len(loader._tags) == 0
+    assert loader.index == 0
 
 
 def test_tempdirs():
@@ -24,10 +24,11 @@ def test_tempdirs():
 
 
 def test_tagfilter():
-    loader.artists = ["test_name"]
+    loader._archive_map = {"test_name": ""}
     loader.updateTagFilter(True)
+    assert loader._lasttag == "test_name"
     assert loader._tagfilter == {"test_name": "Approve"}
-    assert loader.artists == list()
+    assert loader._tags == list()
     loader.undoLastFilter()
     assert loader._tagfilter == dict()
 
@@ -41,8 +42,8 @@ def test_ordering():
 def test_loadMedia():
     initialized_loader = ImageLoader(data_dir)
     initialized_loader.loadMedia(mock_data_dir)
-    assert initialized_loader.artists == ["name"]
-    assert initialized_loader._artist_map["name"] == [
+    assert initialized_loader._tags == ["name"]
+    assert initialized_loader._archive_map["name"] == [
         "{}/test.zip".format(data_dir.name)
     ]
     initialized_loader._cleanTempDirs()

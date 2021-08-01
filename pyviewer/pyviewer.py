@@ -8,7 +8,6 @@ class PyViewer(QObject):
     def __init__(self, parent=None):
         super(PyViewer, self).__init__(parent)
         self.imageloader = ImageLoader()
-        self._files = ""
 
     def extractFiles(self):
         self._files = ""
@@ -25,11 +24,9 @@ class PyViewer(QObject):
     def path(self):
         return self._files
 
-    @Slot(int)
+    @Slot(int)  # TODO reimplement modulo
     def loadNextArchive(self, direction):
-        self.imageloader.artist_index = (
-            self.imageloader.artist_index + direction
-        ) % len(self.imageloader.artists)
+        self.imageloader.index = self.imageloader.index + direction
         self.extractFiles()
 
     @Slot(bool)
