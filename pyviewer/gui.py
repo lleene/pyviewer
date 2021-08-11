@@ -1,12 +1,13 @@
-import sys
+"""WIP: Helper module for launching graphical application directly."""
 
-from pyviewer import PyViewer
+import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtQml import QQmlApplicationEngine
+from pyviewer import PyViewer
 
 
-def StartViewer(root_dir):
-    print("Starting up...")
+def start_viewer(root_dir):
+    """Initialize the QML application and load media in the root_dir."""
     app = QApplication()
     engine = QQmlApplicationEngine()
 

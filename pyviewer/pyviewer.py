@@ -1,12 +1,16 @@
-from pyviewer import ImageLoader
+"""Main QObject with qml bindings that prompt excusion from user interface."""
+
 from PySide6.QtCore import QObject, Property, Signal, Slot
+from pyviewer import ImageLoader
 
 
 class PyViewer(QObject):
+    """ """
     pathChanged = Signal()
 
     def __init__(self, parent=None):
-        super(PyViewer, self).__init__(parent)
+        """ """
+        super().__init__(parent)
         self.imageloader = ImageLoader()
 
     def extractFiles(self):

@@ -1,11 +1,12 @@
-from tempfile import TemporaryDirectory
-from zipfile import ZipFile
-from PIL import Image
+"""File system interface that manages and retrieves media."""
 
 import glob
 import json
 import math
 import os
+from tempfile import TemporaryDirectory
+from zipfile import ZipFile
+from PIL import Image
 
 
 class ArchiveManager:
