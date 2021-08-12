@@ -19,23 +19,23 @@ ApplicationWindow {
     Keys.onLeftPressed: grid.page = Math.max(grid.page-1,0)
     Keys.onRightPressed: grid.page = Math.min(grid.page+1,4)
     Keys.onTabPressed: {
-      viewer.updateTagFilter(false);
+      viewer.update_tag_filter(false);
       grid.page = 0
     }
     Keys.onSpacePressed: {
-      viewer.updateTagFilter(true);
+      viewer.update_tag_filter(true);
       grid.page = 0
     }
     Keys.onBacktabPressed: {
-      viewer.undoLastFilter();
+      viewer.undo_last_filter();
       grid.page = 0
     }
     Keys.onUpPressed: {
-      viewer.loadNextArchive(1);
+      viewer.load_next_archive(1);
       grid.page = 0
     }
     Keys.onDownPressed: {
-      viewer.loadNextArchive(-1);
+      viewer.load_next_archive(-1);
       grid.page = 0
     }
   }

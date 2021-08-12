@@ -5,40 +5,46 @@ from pyviewer import ImageLoader
 
 
 class PyViewer(QObject):
-    """ """
-    pathChanged = Signal()
+    """QObject for binging user interface to imageloader."""
+    path_changed = Signal()
 
     def __init__(self, parent=None):
-        """ """
+        """Initialize image loader backend and load defaults."""
         super().__init__(parent)
         self.imageloader = ImageLoader()
-
-    def extractFiles(self):
         self._files = ""
-        self.pathChanged.emit()
-        file_list = self.imageloader.extractCurrentIndex()
-        self._files = "::".join(self.imageloader.orderFileList(file_list))
-        self.pathChanged.emit()
 
-    def loadFileMap(self, media_path):
-        self.imageloader.loadMedia(media_path)
-        self.extractFiles()
+    def extract_files(self):
+        """Prompt loader to extract new set of files and emit change."""
+        self._files = ""
+        self.path_changed.emit()
+        self._files = "::".join(self.imageloader.file_list)
+        self.path_changed.emit()
 
-    @Property(str, notify=pathChanged)
+    def load_file_map(self, media_path):
+        """Load media path and refresh viewer."""
+        self.imageloader.load_media(media_path, media_path)
+        self.extract_files()
+
+    @Property(str, notify=path_changed)
     def path(self):
+        """Compound string concaternating currently extracted images."""
         return self._files
 
-    @Slot(int)  # TODO reimplement modulo
-    def loadNextArchive(self, direction):
-        self.imageloader.index = self.imageloader.index + direction
-        self.extractFiles()
+    @Slot(int)
+    def load_next_archive(self, direction):
+        """Adjust tag index and refresh viewer."""
+        self.imageloader.adjust_index(direction)
+        self.extract_files()
 
     @Slot(bool)
-    def updateTagFilter(self, filter_bool):
-        self.imageloader.updateTagFilter(filter_bool)
-        self.extractFiles()
+    def update_tag_filter(self, filter_bool):
+        """Store tag result and refresh viewer."""
+        self.imageloader.update_tag_filter(filter_bool)
+        self.extract_files()
 
     @Slot()
-    def undoLastFilter(self):
-        self.imageloader.undoLastFilter()
-        self.extractFiles()
+    def undo_last_filter(self):
+        """Undo the last tagfilter change and refresh viewer."""
+        self.imageloader.undo_last_filter()
+        self.extract_files()

@@ -27,8 +27,7 @@ def test_tempdirs():
 
 
 def test_ordering():
-    """Test alphabetical file ordering procedure"""
-    sorted_names = loader.orderFileList(
-        [["C2.", "C1.", "C0."], ["A2.", "A0.", "A1."]])
-    assert sorted_names[0:3] == ["C0.", "C1.", "C2."]
-    assert sorted_names[3:] == ["A0.", "A1.", "A2."]
+    """Test file ordering procedure"""
+    sorted_names = loader.order_file_list(
+        [["C0.", "C1.", "C2."], ["A0.", "A1.", "A2."]])
+    assert sorted_names == ["C0.", "C1.", "C2.", "A0.", "A1.", "A2."]
