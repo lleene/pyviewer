@@ -100,9 +100,15 @@ class TagManager():
                 self._media_map = json.load(file)
         else:
             self._generate_tag_map(media_object)
-            if os.access(os.path.join(run_dir, "mapfile.json"), os.W_OK):
+            if os.access(os.path.join(run_dir), os.W_OK):
                 with open(os.path.join(run_dir, "mapfile.json"), "w") as file:
                     json.dump(self._media_map, file)
+
+    def save_tag_filter(self, run_dir):
+        """Store tag filter from file."""
+        if os.access(os.path.join(run_dir), os.W_OK):
+            with open(os.path.join(run_dir, "tagfilter.json"), "w") as file:
+                json.dump(self._tagfilter, file)
 
     def update_tag_filter(self, filter_bool):
         """Update tag filter with filter decision."""
@@ -188,12 +194,6 @@ class ImageLoader(ArchiveManager, TagManager):
             for tag in {entry["artist"][0] for entry in meta_list if "artist" in entry}
         }
 
-    def _save_tag_filter(self, file_path):
-        # TODO There must be a better way
-        """Store tag filter from file."""
-        with open(file_path, "w") as filter_file:
-            json.dump(self._tagfilter, filter_file)
-
     def extract_current_index(
         self,
     ):
@@ -242,12 +242,17 @@ class ImageLoader(ArchiveManager, TagManager):
 class BooruLoader(TagManager):
     """Booru manager for loading and organizing images with tag filters."""
 
-    def __init__(self):
+    def __init__(self, host="127.0.0.1"):
         """Connect to PG database on creation"""
+        self._data_root = ""
         super().__init__()
-        self._data_root = "/mnt/media/Media/booru_archive/data/original"
         self.pgdb = psycopg2.connect(
-            dbname="danbooru2", user="lbl11", password="", host="127.0.0.1")
+            dbname="danbooru2", user="lbl11", password="", host=host)
+
+    def load_media(self, run_dir, media_object):
+        """Config root dir and load media map."""
+        self._data_root = media_object
+        super().load_media(run_dir, media_object)
 
     def _generate_tag_map(self, media_object):
         """Query booru for media tags."""

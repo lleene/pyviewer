@@ -12,7 +12,7 @@ def start_viewer(root_dir):
     engine = QQmlApplicationEngine()
 
     pyviewer = PyViewer()
-    pyviewer.load_file_map(root_dir)
+    pyviewer.load_file_map(".", root_dir)
 
     engine.rootContext().setContextProperty("viewer", pyviewer)
     engine.load("pyviewer/pyviewer.qml")
@@ -22,4 +22,5 @@ def start_viewer(root_dir):
         sys.exit(-1)
 
     ret = app.exec()
+    pyviewer.imageloader.save_tag_filter(".")
     sys.exit(ret)

@@ -17,14 +17,12 @@ class PyViewer(QObject):
 
     def load_files(self):
         """Prompt loader to extract new set of files and emit change."""
-        self._files = ""
-        self.path_changed.emit()
         self._files = "::".join(self.imageloader.file_list)
         self.path_changed.emit()
 
-    def load_file_map(self, media_path):
+    def load_file_map(self, run_dir, media_path):
         """Load media path and refresh viewer."""
-        self.imageloader.load_media(media_path, media_path)
+        self.imageloader.load_media(run_dir, media_path)
         self.load_files()
 
     @Property(str, notify=path_changed)
