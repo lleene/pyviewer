@@ -1,8 +1,5 @@
 """Test module for validating archive management operations"""
 
-from hypothesis import given
-from hypothesis.strategies import text
-
 from pyviewer import ArchiveManager
 
 
@@ -22,7 +19,7 @@ loader = ArchiveManager(data_dir)
 
 def test_tempdirs():
     """Verify the instantiation of temp directory structure"""
-    assert loader._temp_dir.name == data_dir.name
+    assert loader._run_dir.name == data_dir.name
     assert len(loader._subdirs) == 4
 
 

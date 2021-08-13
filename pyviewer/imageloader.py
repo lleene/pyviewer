@@ -1,13 +1,14 @@
 """File system interface that manages and retrieves media."""
 # TODO move management components to seperate file and rename this file
 
-import psycopg2
 import glob
 import json
 import math
 import os
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
+
+import psycopg2
 from PIL import Image
 
 
@@ -15,11 +16,11 @@ class ArchiveManager:
     # TODO Currently using temp dirs but we should use in-memory-object
     """Simple file handler for compressed archives."""
 
-    def __init__(self, tempdir=TemporaryDirectory()):
+    def __init__(self, run_dir):
         """Init manager with pre-allocated tempdirs."""
-        self._temp_dir = tempdir
+        self._run_dir = run_dir
         self._subdirs = [
-            TemporaryDirectory(dir=self._temp_dir.name) for index in range(4)
+            TemporaryDirectory(dir=self._run_dir.name) for index in range(4)
         ]
 
     def clean_temp_dirs(self):
@@ -27,8 +28,8 @@ class ArchiveManager:
         """Tempdir cleanup method."""
         for subdir in self._subdirs:
             subdir.cleanup()
-        if isinstance(self._temp_dir, TemporaryDirectory):
-            self._temp_dir.cleanup()
+        if isinstance(self._run_dir, TemporaryDirectory):
+            self._run_dir.cleanup()
 
     @classmethod
     def order_file_list(cls, file_list, modulo=4, max_image_count=40):
@@ -166,14 +167,19 @@ class TagManager():
         )
 
 
-class ImageLoader(ArchiveManager, TagManager):
+class ImageLoader(TagManager, ArchiveManager):
     """Archive manager for loading and organizing images with tag filters."""
+
+    def __init__(self, run_dir=TemporaryDirectory()):
+        """Create empty media handler."""
+        TagManager.__init__(self)
+        ArchiveManager.__init__(self, run_dir)
 
     def _fetch_meta_file(self, file_path):
         """Load archive metadata file into temp dir and return contents."""
         with ZipFile(file_path, "r") as archive:
             metafile = archive.extract(
-                "metadata.json", path=self._temp_dir.name)
+                "metadata.json", path=self._run_dir.name)
             with open(metafile, "r") as file:
                 return json.load(file)
 

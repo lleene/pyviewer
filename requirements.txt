@@ -1,0 +1,4 @@
+pytest>=3
+psycopg2>=2
+PySide6>=6
+Pillow>=8

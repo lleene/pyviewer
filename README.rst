@@ -16,7 +16,7 @@ pyviewer
 
 
 
-Simple image browser application using pyside2 with qml bindings.
+Simple image browser application using pyside with qml bindings.
 
 
 * Free software: MIT license
@@ -26,7 +26,8 @@ Simple image browser application using pyside2 with qml bindings.
 Features
 --------
 
-* Todo
+1. Browse compressed image archives
+2. Browse booru image database
 
 Planned Features
 --------

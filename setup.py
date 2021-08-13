@@ -10,11 +10,11 @@ with open("README.rst") as readme_file:
 with open("HISTORY.rst") as history_file:
     history = history_file.read()
 
-requirements = []
+with open("requirements.txt") as requirements_file:
+    requirements = requirements_file.read().splitlines()
 
-test_requirements = [
-    "pytest>=3",
-]
+with open("requirements_dev.txt") as requirements_file:
+    test_requirements = requirements_file.read().splitlines()
 
 setup(
     author="Lieuwe Leene",
@@ -26,8 +26,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
     description="Simple image browser application using pyside with qml bindings.",

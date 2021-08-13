@@ -1,3 +1,4 @@
+
 from pyviewer import ImageLoader
 
 
@@ -17,7 +18,7 @@ def test_startup():
 
 
 def test_tagfilter():
-    loader._archive_map = {"test_name": ""}
+    loader._media_map = {"test_name": ""}
     loader.update_tag_filter(True)
     assert loader._lasttag == "test_name"
     assert loader._tagfilter == {"test_name": "Approve"}
@@ -30,7 +31,7 @@ def test_load_media():
     initialized_loader = ImageLoader(data_dir)
     initialized_loader.load_media(mock_data_dir, mock_data_dir)
     assert set(initialized_loader.tags) == {"name", "none"}
-    assert initialized_loader._archive_map["name"] == [
+    assert initialized_loader._media_map["name"] == [
         "{}/test.zip".format(data_dir.name)
     ]
     initialized_loader.clean_temp_dirs()
