@@ -1,5 +1,7 @@
 """File system interface that manages and retrieves media."""
+# TODO move management components to seperate file and rename this file
 
+import psycopg2
 import glob
 import json
 import math
@@ -90,10 +92,10 @@ class TagManager():
 
     def load_media(self, run_dir, media_object):
         """Load tagfilter and archive map used to index archives."""
-        if os.path.join(run_dir, "tagfilter.json"):
+        if os.access(os.path.join(run_dir, "tagfilter.json"), os.R_OK):
             with open(os.path.join(run_dir, "tagfilter.json"), "r") as file:
                 self._tagfilter = json.load(file)
-        if os.path.join(run_dir, "mapfile.json"):
+        if os.access(os.path.join(run_dir, "mapfile.json"), os.R_OK):
             with open(os.path.join(run_dir, "mapfile.json"), "r") as file:
                 self._media_map = json.load(file)
         else:
@@ -240,10 +242,29 @@ class ImageLoader(ArchiveManager, TagManager):
 class BooruLoader(TagManager):
     """Booru manager for loading and organizing images with tag filters."""
 
+    def __init__(self):
+        """Connect to PG database on creation"""
+        super().__init__()
+        self._data_root = "/mnt/media/Media/booru_archive/data/original"
+        self.pgdb = psycopg2.connect(
+            dbname="danbooru2", user="lbl11", password="", host="127.0.0.1")
+
     def _generate_tag_map(self, media_object):
         """Query booru for media tags."""
-        self._media_map = dict()
+        cursor = self.pgdb.cursor()
+        cursor.execute(
+            "SELECT * FROM tags WHERE category = 1 AND post_count >= 10 ;")
+        self._media_map = {artist[1]: {
+            "id": artist[0], "count": artist[2]} for artist in cursor.fetchall()}
+        cursor.close()
 
-    @property
+    @ property
     def file_list(self):
-        return ""
+        """Query booru for media file list of current tag."""
+        cursor = self.pgdb.cursor()
+        cursor.execute(
+            "SELECT * FROM posts WHERE tag_index @@ $$'{}'$$::tsquery LIMIT 40;".format(self.tag))
+        file_list = ["{}/{}/{}/{}".format(self._data_root, entry[7][0:2],
+                                          entry[7][2:4], entry[7]) for entry in cursor.fetchall()]
+        cursor.close()
+        return file_list
