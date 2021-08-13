@@ -1,7 +1,8 @@
 """Main QObject with qml bindings that prompt excusion from user interface."""
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
-from pyviewer import ImageLoader, BooruLoader
+# from pyviewer import ImageLoader
+from pyviewer import BooruLoader
 
 
 class PyViewer(QObject):

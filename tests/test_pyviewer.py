@@ -5,7 +5,7 @@
 import pytest
 
 
-from pyviewer import pyviewer
+# from pyviewer import pyviewer
 
 
 @pytest.fixture

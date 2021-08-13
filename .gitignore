@@ -1,7 +1,8 @@
 # PyViewer
 temp
 tests/data/tmp*
-artist.map*
+tests/data/*.json*
+mapfile.json
 tagfilter.json*
 
 # ---> Python

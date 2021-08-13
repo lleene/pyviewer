@@ -43,7 +43,8 @@ class ArchiveManager:
                 math.ceil(max_image_count / modulo) - 1,
             )
         ):
-            if set_index[index % len(set_size)] < set_size[index % len(set_size)]:
+            if set_index[index % len(set_size)] \
+              < set_size[index % len(set_size)]:
                 ordered_list.extend(
                     file_list[index % len(set_size)][
                         set_index[index % len(set_size)]
@@ -148,7 +149,8 @@ class TagManager():
     @property
     def tag(self):
         """Return the current tag."""
-        return self.tags[self.index] if 0 <= self.index < len(self.tags) else ""
+        return self.tags[self.index] \
+            if 0 <= self.index < len(self.tags) else ""
 
     @property
     def media_list(self):
@@ -195,9 +197,11 @@ class ImageLoader(TagManager, ArchiveManager):
             tag: [
                 match["path"]
                 for match in meta_list
-                if "path" in match and "artist" in match and match["artist"][0] == tag
+                if "path" in match and "artist" in match
+                and match["artist"][0] == tag
             ]
-            for tag in {entry["artist"][0] for entry in meta_list if "artist" in entry}
+            for tag in {entry["artist"][0] for
+                        entry in meta_list if "artist" in entry}
         }
 
     def extract_current_index(
@@ -266,7 +270,8 @@ class BooruLoader(TagManager):
         cursor.execute(
             "SELECT * FROM tags WHERE category = 1 AND post_count >= 10 ;")
         self._media_map = {artist[1]: {
-            "id": artist[0], "count": artist[2]} for artist in cursor.fetchall()}
+            "id": artist[0], "count": artist[2]} for
+            artist in cursor.fetchall()}
         cursor.close()
 
     @ property
@@ -274,8 +279,10 @@ class BooruLoader(TagManager):
         """Query booru for media file list of current tag."""
         cursor = self.pgdb.cursor()
         cursor.execute(
-            "SELECT * FROM posts WHERE tag_index @@ $$'{}'$$::tsquery LIMIT 40;".format(self.tag))
+            "SELECT * FROM posts WHERE tag_index "
+            + "@@ $$'{}'$$::tsquery LIMIT 40;".format(self.tag))
         file_list = ["{}/{}/{}/{}".format(self._data_root, entry[7][0:2],
-                                          entry[7][2:4], entry[7]) for entry in cursor.fetchall()]
+                                          entry[7][2:4], entry[7])
+                     for entry in cursor.fetchall()]
         cursor.close()
         return file_list
