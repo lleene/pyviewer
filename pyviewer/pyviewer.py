@@ -48,3 +48,8 @@ class PyViewer(QObject):
         """Undo the last tagfilter change and refresh viewer."""
         self.imageloader.undo_last_filter()
         self.load_files()
+
+    @Slot(int)
+    def set_max_image_count(self, count):
+        """Set the maximum number of Images."""
+        self.imageloader.max_image_count = count

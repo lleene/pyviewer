@@ -87,6 +87,7 @@ class BooruLoader(TagManager):
         """Connect to PG database on creation."""
         self._data_root = ""
         self._file_list = dict()
+        self.max_image_count = 40
         self._worker = None
         super().__init__()
         self.pgdb = psycopg2.connect(
@@ -122,24 +123,18 @@ class BooruLoader(TagManager):
         cursor = self.pgdb.cursor()
         cursor.execute(
             "SELECT * FROM posts WHERE tag_index "
-            + "@@ $$'{}'$$::tsquery LIMIT 40;".format(tag))
-        file_list = ["{}/{}/{}/{}".format(self._data_root, entry[7][0:2],
-                                          entry[7][2:4], entry[7])
+            + "@@ $$'{}'$$::tsquery ".format(tag)
+            + "AND 'jpg png'::tsvector @@ to_tsquery(file_ext)"
+            + "AND file_size < 6400000 LIMIT {};".format(self.max_image_count))
+        file_list = ["{}/{}/{}/{}.{}".format(self._data_root, entry[7][0:2],
+                                             entry[7][2:4], entry[7], entry[30])
                      for entry in cursor.fetchall()]
         cursor.close()
         return file_list
 
     def files_at_index(self, index):
         """Query media at target index."""
-        cursor = self.pgdb.cursor()
-        cursor.execute(
-            "SELECT * FROM posts WHERE tag_index "
-            + "@@ $$'{}'$$::tsquery LIMIT 40;".format(self.tag_at(index)))
-        file_list = ["{}/{}/{}/{}".format(self._data_root, entry[7][0:2],
-                                          entry[7][2:4], entry[7])
-                     for entry in cursor.fetchall()]
-        cursor.close()
-        return file_list
+        return self.files_at_tag(self.tag_at(index))
 
     @ property
     def file_list(self):

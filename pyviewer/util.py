@@ -14,6 +14,7 @@ class ArchiveManager:
 
     def __init__(self, run_dir):
         """Init manager with pre-allocated tempdirs."""
+        self.max_image_count = 40
         self._run_dir = run_dir
         self._subdirs = [
             TemporaryDirectory(dir=self._run_dir.name) for index in range(4)
@@ -35,8 +36,7 @@ class ArchiveManager:
             with open(metafile, "r") as file:
                 return json.load(file)
 
-    @classmethod
-    def order_file_list(cls, file_list, modulo=4, max_image_count=40):
+    def order_file_list(self, file_list, modulo=4):
         """Map nested file list into user-friendly flat list of files."""
         set_size = [len(set) for set in file_list]
         set_index = [modulo] * len(file_list)
@@ -44,7 +44,7 @@ class ArchiveManager:
         for index in range(
             min(
                 math.ceil(sum(set_size) / modulo),
-                math.ceil(max_image_count / modulo) - 1,
+                math.ceil(self.max_image_count / modulo) - 1,
             )
         ):
             if set_index[index % len(set_size)] \
