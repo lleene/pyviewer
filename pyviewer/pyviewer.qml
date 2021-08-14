@@ -1,5 +1,6 @@
 import QtQuick.Controls
 import QtQuick
+// import QtMultimedia not ready in QT6
 
 ApplicationWindow {
   id: main
@@ -39,6 +40,7 @@ ApplicationWindow {
       viewer.load_next_archive(-1);
       swipe.currentIndex = 0
     }
+    // TODO split is not defined in pyside2
     property var paths: viewer.path.split("::")
     Component.onCompleted: viewer.path_changed.connect(swipe.update_paths)
   }
@@ -47,8 +49,10 @@ ApplicationWindow {
     id: swipe
     currentIndex: 0
     anchors.fill: parent
-    property int panels: 4
-    property var layout: [4,2]
+    property int max_image_count: 40
+    //property var layout: [4,2]
+    property var layout: [2,1]
+    property int panels: Math.floor(swipe.max_image_count/(swipe.layout[0] * swipe.layout[1]))
     Repeater {
       model: swipe.panels
       Grid {
