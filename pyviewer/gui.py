@@ -12,12 +12,11 @@ def start_viewer(root_dir):
     engine = QQmlApplicationEngine()
 
     pyviewer = PyViewer()
-    pyviewer.load_file_map(".", root_dir)
-
     engine.rootContext().setContextProperty("viewer", pyviewer)
     engine.load("pyviewer/pyviewer.qml")
+    pyviewer.load_file_map(".", root_dir)
+    pyviewer.path_changed.emit()
 
-    print("Done!")
     if not engine.rootObjects():
         sys.exit(-1)
 

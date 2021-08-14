@@ -1,5 +1,5 @@
-import QtQuick.Controls 2.4
-import QtQuick 2.1
+import QtQuick.Controls
+import QtQuick
 
 ApplicationWindow {
   id: main
@@ -11,61 +11,76 @@ ApplicationWindow {
   height: 1000
 
   Rectangle {
+    id: handler
     anchors.fill: parent
     color: "black";
     focus: true
     Keys.enabled: true
     Keys.onEscapePressed: Qt.quit()
-    Keys.onLeftPressed: grid.page = Math.max(grid.page-1,0)
-    Keys.onRightPressed: grid.page = Math.min(grid.page+1,4)
+    Keys.onLeftPressed: swipe.currentIndex = (swipe.currentIndex-1)%swipe.panels
+    Keys.onRightPressed: swipe.currentIndex = (swipe.currentIndex+1)%swipe.panels
     Keys.onTabPressed: {
       viewer.update_tag_filter(false);
-      grid.page = 0
+      swipe.currentIndex = 0
     }
     Keys.onSpacePressed: {
       viewer.update_tag_filter(true);
-      grid.page = 0
+      swipe.currentIndex = 0
     }
     Keys.onBacktabPressed: {
       viewer.undo_last_filter();
-      grid.page = 0
+      swipe.currentIndex = 0
     }
     Keys.onUpPressed: {
       viewer.load_next_archive(1);
-      grid.page = 0
+      swipe.currentIndex = 0
     }
     Keys.onDownPressed: {
       viewer.load_next_archive(-1);
-      grid.page = 0
+      swipe.currentIndex = 0
     }
+    property var paths: viewer.path.split("::")
+    Component.onCompleted: viewer.path_changed.connect(swipe.update_paths)
   }
 
-  Grid {
-    id: grid;
-    property int page: 0
+  SwipeView {
+    id: swipe
+    currentIndex: 0
     anchors.fill: parent
-    rowSpacing: 5
-    columnSpacing: 5
-    columns: 4
-    rows: 2
-    property var paths: viewer.path.split("::")
-
+    property int panels: 4
+    property var layout: [4,2]
     Repeater {
-      id: repeater
-      model: grid.columns * grid.rows;
-      delegate: delegateGridImage
+      model: swipe.panels
+      Grid {
+        rowSpacing: 2
+        columnSpacing: 2
+        columns: swipe.layout[0]
+        rows: swipe.layout[1]
+        Repeater {
+          model: swipe.layout[0] * swipe.layout[1];
+          Item {
+            width: swipe.width / swipe.layout[0]
+            height: swipe.height / swipe.layout[1]
+            Image {
+              anchors.fill: parent
+              fillMode: Image.PreserveAspectCrop
+              source: ""
+            }
+          }
+        }
+      }
     }
-    Component {
-      id: delegateGridImage
-      Item {
-        property int currentColumn: index % grid.columns
-        property int currentRow: Math.floor(index / grid.rows);
-        width: grid.width / grid.columns
-        height: grid.height / grid.rows
-        Image {
-          anchors.fill: parent
-          fillMode: Image.PreserveAspectCrop
-          source: index+grid.page*(grid.rows*grid.columns) >= grid.paths.length ?  "" : grid.paths[index+grid.page*(grid.rows*grid.columns)]
+
+    function update_paths() {
+      // TODO this needs a cleanup
+      for (var i = 0; i < swipe.panels ; i++)  {
+        for ( var j = 0; j < swipe.layout[0] * swipe.layout[1]; j++ ) {
+          if ( j+i*(swipe.layout[0] * swipe.layout[1]) < handler.paths.length ) {
+            swipe.contentChildren[i].children[j].children[0].source = handler.paths[j+i*(swipe.layout[0] * swipe.layout[1])]
+          }
+          else {
+            swipe.contentChildren[i].children[j].children[0].source = ""
+          }
         }
       }
     }

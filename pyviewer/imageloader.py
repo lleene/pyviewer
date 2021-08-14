@@ -62,7 +62,8 @@ class ArchiveManager:
         return ordered_list
 
     @classmethod
-    def extract_archive(cls, archive_path, output_dir):
+    def extract_archive(cls, archive_path, output_dir,
+                        max_image_count=10, count_offset=0):
         """Extract all images from archive into output directory."""
         with ZipFile(archive_path, "r") as archive:
             images = [
@@ -70,7 +71,9 @@ class ArchiveManager:
                 for file in archive.infolist()
                 if "png" in file.filename or "jpg" in file.filename
             ]
-            for image in images:
+            images.sort()
+            for image in images[count_offset:min(count_offset
+                                + max_image_count, len(images))]:
                 file_path = os.path.join(output_dir, image)
                 if os.path.exists(file_path):
                     os.remove(file_path)
@@ -220,8 +223,6 @@ class ImageLoader(TagManager, ArchiveManager):
                     )
                 ]
             )
-        for set in file_list:
-            set.sort()
         return file_list
 
     def _check_archive(self, archive_path):
@@ -240,8 +241,8 @@ class ImageLoader(TagManager, ArchiveManager):
             for archive_path in self.media_list:
                 try:
                     self._check_archive(archive_path)
-                except Exception as e:
-                    print("Error in {}: {}".format(archive_path, e))
+                except Image.UnidentifiedImageError as error:
+                    print("Cannot open {}: {}".format(archive_path, error))
 
     @property
     def file_list(self):
@@ -253,7 +254,7 @@ class BooruLoader(TagManager):
     """Booru manager for loading and organizing images with tag filters."""
 
     def __init__(self, host="127.0.0.1"):
-        """Connect to PG database on creation"""
+        """Connect to PG database on creation."""
         self._data_root = ""
         super().__init__()
         self.pgdb = psycopg2.connect(

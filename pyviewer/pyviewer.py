@@ -7,7 +7,7 @@ from pyviewer import BooruLoader
 
 class PyViewer(QObject):
     """QObject for binging user interface to imageloader."""
-    path_changed = Signal()
+    path_changed = Signal(name="path_changed")
 
     def __init__(self, parent=None):
         """Initialize image loader backend and load defaults."""
