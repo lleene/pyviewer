@@ -9,66 +9,25 @@ from tempfile import TemporaryDirectory
 
 
 class ArchiveManager:
-    # TODO Currently using temp dirs but we should use in-memory-object
     """Simple file handler for compressed archives."""
 
-    def __init__(self, run_dir):
-        """Init manager with pre-allocated tempdirs."""
+    def __init__(self):
+        """Init manager empty data structure."""
         self.max_image_count = 40
-        self._run_dir = run_dir
-        self._subdirs = [
-            TemporaryDirectory(dir=self._run_dir.name) for index in range(4)
-        ]
+        self.modulo = 4
+        self._images = []
 
-    def clean_temp_dirs(self):
-        # TODO handle condition post cleaned up
-        """Tempdir cleanup method."""
-        for subdir in self._subdirs:
-            subdir.cleanup()
-        if isinstance(self._run_dir, TemporaryDirectory):
-            self._run_dir.cleanup()
+    def load_file(self, archive, filename):
+        with archive.open(filename,'r') as file:
+            return file.read()
 
     def _fetch_meta_file(self, file_path):
         """Load archive metadata file into temp dir and return contents."""
         with ZipFile(file_path, "r") as archive:
-            metafile = archive.extract(
-                "metadata.json", path=self._run_dir.name)
-            with open(metafile, "r") as file:
-                return json.load(file)
+            return json.loads(load_file(archive,"metadata.json"))
 
-    def order_file_list(self, file_list, modulo=4):
-        """Map nested file list into user-friendly flat list of files."""
-        set_size = [len(set) for set in file_list]
-        set_index = [modulo] * len(file_list)
-        ordered_list = list()
-        for index in range(
-            min(
-                math.ceil(sum(set_size) / modulo),
-                math.ceil(self.max_image_count / modulo) - 1,
-            )
-        ):
-            if set_index[index % len(set_size)] \
-              < set_size[index % len(set_size)]:
-                ordered_list.extend(
-                    file_list[index % len(set_size)][
-                        set_index[index % len(set_size)]
-                        - modulo: set_index[index % len(set_size)]
-                    ]
-                )
-            else:
-                ordered_list.extend(
-                    file_list[index % len(set_size)][
-                        set_index[index % len(set_size)]
-                        - modulo: set_size[index % len(set_size)]
-                    ]
-                )
-            set_index[index % len(set_size)] += modulo
-        return ordered_list
-
-    @classmethod
-    def extract_archive(cls, archive_path, output_dir,
-                        max_image_count=10, count_offset=0):
-        """Extract all images from archive into output directory."""
+    def load_archive(self, archive_path, count_offset=0):
+        """Extract and return images as array of binary objects."""
         with ZipFile(archive_path, "r") as archive:
             images = [
                 file.filename
@@ -76,13 +35,39 @@ class ArchiveManager:
                 if ".png" == file.filename[-4:] or ".jpg" == file.filename[-4:]
             ]
             images.sort()
-            for image in images[count_offset:min(count_offset
-                                + max_image_count, len(images))]:
-                file_path = os.path.join(output_dir, image)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                archive.extract(image, path=output_dir)
-            return images
+            return [ self.load_file(archive, image_name) for
+                      image_name in images[count_offset:min(count_offset
+                      + round(self.max_image_count/self.modulo), len(images))]]
+    @property
+    def images(self):
+        # TODO group images in sets depending on GUI layout, fixed at 4
+        """Map nested file list into user-friendly flat list of files."""
+        set_size = [len(set) for set in self._images]
+        set_index = [self.modulo] * len(self._images)
+        ordered_list = []
+        for index in range(
+            min(
+                math.ceil(sum(set_size) / self.modulo),
+                math.ceil(self.max_image_count / self.modulo) - 1,
+            )
+        ):
+            if set_index[index % len(set_size)] \
+              < set_size[index % len(set_size)]:
+                ordered_list.extend(
+                    self._images[index % len(set_size)][
+                        set_index[index % len(set_size)]
+                        - self.modulo: set_index[index % len(set_size)]
+                    ]
+                )
+            else:
+                ordered_list.extend(
+                    self._images[index % len(set_size)][
+                        set_index[index % len(set_size)]
+                        - self.modulo: set_size[index % len(set_size)]
+                    ]
+                )
+            set_index[index % len(set_size)] += self.modulo
+        return ordered_list
 
 
 class TagManager():

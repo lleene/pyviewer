@@ -1,5 +1,5 @@
-import QtQuick.Controls
-import QtQuick
+import QtQuick.Controls 2.4
+import QtQuick 2.1
 // import QtMultimedia not ready in QT6
 
 ApplicationWindow {
@@ -8,7 +8,7 @@ ApplicationWindow {
   title: qsTr("Reviewer Gallery")
   visible: true
   property var layout: [2,1]
-  visibility: Window.FullScreen
+  // visibility: Window.FullScreen
   width: 1600
   height: 1000
 
@@ -72,7 +72,7 @@ ApplicationWindow {
             Image {
               anchors.fill: parent
               fillMode: Image.PreserveAspectCrop
-              source: ""
+              //source: ""
             }
           }
         }
@@ -84,10 +84,10 @@ ApplicationWindow {
       for (var i = 0; i < swipe.panels ; i++)  {
         for ( var j = 0; j < main.layout[0] * main.layout[1]; j++ ) {
           if ( j+i*(main.layout[0] * main.layout[1]) < handler.paths.length ) {
-            swipe.contentChildren[i].children[j].children[0].source = handler.paths[j+i*(main.layout[0] * main.layout[1])]
+            //swipe.contentChildren[i].children[j].children[0].source = handler.paths[j+i*(main.layout[0] * main.layout[1])]
           }
           else {
-            swipe.contentChildren[i].children[j].children[0].source = ""
+            //swipe.contentChildren[i].children[j].children[0].source = ""
           }
         }
       }

@@ -1,9 +1,10 @@
 """Main QObject with qml bindings that prompt excusion from user interface."""
 
-from PySide6.QtCore import QObject, Property, Signal, Slot
-# from pyviewer import ImageLoader
-from pyviewer import BooruLoader
-
+import sys
+from PySide2.QtCore import QObject, Property, Signal, Slot
+from PySide2.QtQml import QQmlApplicationEngine
+from PySide2.QtWidgets import QApplication
+from pyviewer import BooruLoader, ImageLoader
 
 class PyViewer(QObject):
     """QObject for binging user interface to imageloader."""
@@ -12,8 +13,8 @@ class PyViewer(QObject):
     def __init__(self, parent=None):
         """Initialize image loader backend and load defaults."""
         super().__init__(parent)
-        # self.imageloader = ImageLoader()
-        self.imageloader = BooruLoader()
+        self.imageloader = ImageLoader()
+        # self.imageloader = BooruLoader()
         self._files = ""
 
     def load_files(self):
@@ -23,7 +24,7 @@ class PyViewer(QObject):
 
     def load_file_map(self, run_dir, media_path):
         """Load media path and refresh viewer."""
-        self.imageloader.load_media(run_dir, media_path)
+        # self.imageloader.load_media(run_dir, media_path)
         self.load_files()
 
     @Property(str, notify=path_changed)
@@ -53,3 +54,22 @@ class PyViewer(QObject):
     def set_max_image_count(self, count):
         """Set the maximum number of Images."""
         self.imageloader.max_image_count = count
+
+
+def start_viewer(root_dir):
+    """Initialize the QML application and load media in the root_dir."""
+    app = QApplication()
+    engine = QQmlApplicationEngine()
+
+    pyviewer = PyViewer()
+    engine.rootContext().setContextProperty("viewer", pyviewer)
+    engine.load("pyviewer/pyviewer.qml")
+    pyviewer.load_file_map(".", root_dir)
+    pyviewer.path_changed.emit()
+
+    if not engine.rootObjects():
+        sys.exit(-1)
+
+    # ret = app.exec()
+    # pyviewer.imageloader.save_tag_filter(".")
+    # sys.exit(ret)

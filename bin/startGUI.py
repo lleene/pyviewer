@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 import pyviewer
 
-pyviewer.gui.start_viewer("/mnt/media/Media/booru_archive/data/original")
+pyviewer.start_viewer("/mnt/media/Media/booru_archive/data/original")

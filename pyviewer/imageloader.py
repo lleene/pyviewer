@@ -13,10 +13,10 @@ from pyviewer import ArchiveManager, TagManager
 class ImageLoader(TagManager, ArchiveManager):
     """Archive manager for loading and organizing images with tag filters."""
 
-    def __init__(self, run_dir):
+    def __init__(self):
         """Create empty media handler."""
         TagManager.__init__(self)
-        ArchiveManager.__init__(self, run_dir)
+        ArchiveManager.__init__(self)
 
     def _generate_tag_map(self, media_object):
         # TODO allow any tags to be matched
@@ -77,7 +77,7 @@ class ImageLoader(TagManager, ArchiveManager):
     @property
     def file_list(self):
         """Return file list associated with current tag."""
-        return self.order_file_list(self.extract_current_index())
+        return ""
 
 
 class BooruLoader(TagManager):
