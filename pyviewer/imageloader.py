@@ -37,23 +37,10 @@ class ImageLoader(TagManager, ArchiveManager):
                         entry in meta_list if "artist" in entry}
         }
 
-    def extract_current_index(
-        self,
-    ):
+    def extract_current_index(self):
         """Extract archives associated with active tag."""
-        file_list = []
-        for index, subdir in enumerate(self._subdirs):
-            if index >= len(self.media_list):
-                break
-            file_list.append(
-                [
-                    os.path.join(subdir.name, file_name)
-                    for file_name in self.extract_archive(
-                        self.media_list[index], subdir.name
-                    )
-                ]
-            )
-        return file_list
+        images = [ self.load_archive(media) for index,media in enumerate(self.media_list) if index < 4 ]
+        self.order_images(images)
 
     def _check_archive(self, archive_path):
         """Validate all images in archive."""
@@ -74,10 +61,6 @@ class ImageLoader(TagManager, ArchiveManager):
                 except Image.UnidentifiedImageError as error:
                     print("Cannot open {}: {}".format(archive_path, error))
 
-    @property
-    def file_list(self):
-        """Return file list associated with current tag."""
-        return ""
 
 
 class BooruLoader(TagManager):
@@ -119,6 +102,10 @@ class BooruLoader(TagManager):
             self._file_list.update({tag: self.files_at_tag(tag)})
 
     def files_at_tag(self, tag):
+        # TODO use named tuple when fetching from sql
+        # from collections import namedtuple
+        # derive from table index names
+        # namedtuple('query',['name','age','DOB'])
         """Query media at target index."""
         cursor = self.pgdb.cursor()
         cursor.execute(

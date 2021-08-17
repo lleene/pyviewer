@@ -1,54 +1,59 @@
 """Main QObject with qml bindings that prompt excusion from user interface."""
 
 import sys
-from PySide2.QtCore import QObject, Property, Signal, Slot
+from PySide2.QtCore import QByteArray, QObject, Property, Signal, Slot
 from PySide2.QtQml import QQmlApplicationEngine
 from PySide2.QtWidgets import QApplication
 from pyviewer import BooruLoader, ImageLoader
 
 class PyViewer(QObject):
     """QObject for binging user interface to imageloader."""
-    path_changed = Signal(name="path_changed")
+    images_changed = Signal(name="images_changed")
 
     def __init__(self, parent=None):
         """Initialize image loader backend and load defaults."""
         super().__init__(parent)
         self.imageloader = ImageLoader()
         # self.imageloader = BooruLoader()
-        self._files = ""
 
-    def load_files(self):
+    def load_images(self):
         """Prompt loader to extract new set of files and emit change."""
-        self._files = "::".join(self.imageloader.file_list)
-        self.path_changed.emit()
+        self.imageloader.extract_current_index()
+        self.images_changed.emit()
 
     def load_file_map(self, run_dir, media_path):
         """Load media path and refresh viewer."""
-        # self.imageloader.load_media(run_dir, media_path)
-        self.load_files()
+        self.imageloader.load_media(run_dir, media_path)
+        self.load_images()
 
-    @Property(str, notify=path_changed)
-    def path(self):
-        """Compound string concaternating currently extracted images."""
-        return self._files
+    @Property( int )
+    def length(self):
+        """Number of available images."""
+        return len(self.imageloader._images)
+
+    @Property( QByteArray, notify=images_changed )
+    def image(self):
+        """Return extracted image at index."""
+        #return QByteArray(self.imageloader._images[0])
+        return QByteArray(self.imageloader._images[0])
 
     @Slot(int)
     def load_next_archive(self, direction):
         """Adjust tag index and refresh viewer."""
         self.imageloader.adjust_index(direction)
-        self.load_files()
+        self.load_images()
 
     @Slot(bool)
     def update_tag_filter(self, filter_bool):
         """Store tag result and refresh viewer."""
         self.imageloader.update_tag_filter(filter_bool)
-        self.load_files()
+        self.load_images()
 
     @Slot()
     def undo_last_filter(self):
         """Undo the last tagfilter change and refresh viewer."""
         self.imageloader.undo_last_filter()
-        self.load_files()
+        self.load_images()
 
     @Slot(int)
     def set_max_image_count(self, count):
@@ -65,11 +70,11 @@ def start_viewer(root_dir):
     engine.rootContext().setContextProperty("viewer", pyviewer)
     engine.load("pyviewer/pyviewer.qml")
     pyviewer.load_file_map(".", root_dir)
-    pyviewer.path_changed.emit()
+    pyviewer.images_changed.emit()
 
     if not engine.rootObjects():
         sys.exit(-1)
 
-    # ret = app.exec()
+    ret = app.exec_()
     # pyviewer.imageloader.save_tag_filter(".")
-    # sys.exit(ret)
+    sys.exit(ret)

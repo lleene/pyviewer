@@ -24,7 +24,7 @@ class ArchiveManager:
     def _fetch_meta_file(self, file_path):
         """Load archive metadata file into temp dir and return contents."""
         with ZipFile(file_path, "r") as archive:
-            return json.loads(load_file(archive,"metadata.json"))
+            return json.loads(self.load_file(archive,"metadata.json"))
 
     def load_archive(self, archive_path, count_offset=0):
         """Extract and return images as array of binary objects."""
@@ -38,12 +38,11 @@ class ArchiveManager:
             return [ self.load_file(archive, image_name) for
                       image_name in images[count_offset:min(count_offset
                       + round(self.max_image_count/self.modulo), len(images))]]
-    @property
-    def images(self):
-        # TODO group images in sets depending on GUI layout, fixed at 4
-        """Map nested file list into user-friendly flat list of files."""
-        set_size = [len(set) for set in self._images]
-        set_index = [self.modulo] * len(self._images)
+
+    def order_images(self, images):
+        """Map list into user-friendly flat list of files."""
+        set_size = [len(set) for set in images]
+        set_index = [self.modulo] * len(images)
         ordered_list = []
         for index in range(
             min(
@@ -54,21 +53,20 @@ class ArchiveManager:
             if set_index[index % len(set_size)] \
               < set_size[index % len(set_size)]:
                 ordered_list.extend(
-                    self._images[index % len(set_size)][
+                    images[index % len(set_size)][
                         set_index[index % len(set_size)]
                         - self.modulo: set_index[index % len(set_size)]
                     ]
                 )
             else:
                 ordered_list.extend(
-                    self._images[index % len(set_size)][
+                    images[index % len(set_size)][
                         set_index[index % len(set_size)]
                         - self.modulo: set_size[index % len(set_size)]
                     ]
                 )
             set_index[index % len(set_size)] += self.modulo
-        return ordered_list
-
+        self._images = ordered_list
 
 class TagManager():
     """Tag utility to manage and filter a tag list."""

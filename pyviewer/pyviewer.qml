@@ -1,6 +1,5 @@
 import QtQuick.Controls 2.4
 import QtQuick 2.1
-// import QtMultimedia not ready in QT6
 
 ApplicationWindow {
   id: main
@@ -8,7 +7,6 @@ ApplicationWindow {
   title: qsTr("Reviewer Gallery")
   visible: true
   property var layout: [2,1]
-  // visibility: Window.FullScreen
   width: 1600
   height: 1000
 
@@ -19,10 +17,8 @@ ApplicationWindow {
     focus: true
     Keys.enabled: true
     Keys.onEscapePressed: Qt.quit()
-    Keys.onLeftPressed: swipe.currentIndex = Math.max(swipe.currentIndex-1,0)
-    //Keys.onLeftPressed: swipe.currentIndex = Math.abs((swipe.currentIndex-1)%swipe.panels)
-    Keys.onRightPressed: swipe.currentIndex = Math.min(swipe.currentIndex+1,swipe.panels)
-    //Keys.onRightPressed: swipe.currentIndex = Math.abs((swipe.currentIndex+1)%swipe.panels)
+    Keys.onLeftPressed: swipe.currentIndex = swipe.currentIndex <= 0 ? swipe.panels - 1 : swipe.currentIndex - 1
+    Keys.onRightPressed: swipe.currentIndex = swipe.currentIndex >= swipe.panels - 1 ? 0 : swipe.currentIndex + 1
     Keys.onTabPressed: {
       viewer.update_tag_filter(false);
       swipe.currentIndex = 0
@@ -43,10 +39,8 @@ ApplicationWindow {
       viewer.load_next_archive(-1);
       swipe.currentIndex = 0
     }
-    // TODO split is not defined in pyside2
-    property var paths: viewer.path.split("::")
     Component.onCompleted: {
-      viewer.path_changed.connect(swipe.update_paths)
+      viewer.images_changed.connect(swipe.update_images)
       viewer.set_max_image_count(swipe.max_image_count)
     }
   }
@@ -72,22 +66,23 @@ ApplicationWindow {
             Image {
               anchors.fill: parent
               fillMode: Image.PreserveAspectCrop
-              //source: ""
+              source: ""
             }
           }
         }
       }
     }
 
-    function update_paths() {
-      // TODO this needs a cleanup
+    function update_images() {
+      console.log(viewer.length)
       for (var i = 0; i < swipe.panels ; i++)  {
         for ( var j = 0; j < main.layout[0] * main.layout[1]; j++ ) {
-          if ( j+i*(main.layout[0] * main.layout[1]) < handler.paths.length ) {
-            //swipe.contentChildren[i].children[j].children[0].source = handler.paths[j+i*(main.layout[0] * main.layout[1])]
+          if ( j+i*(main.layout[0] * main.layout[1]) < viewer.length ) {
+            var index = j+i*(main.layout[0] * main.layout[1])
+            swipe.contentChildren[i].children[j].children[0].source = "data:" + viewer.image
           }
           else {
-            //swipe.contentChildren[i].children[j].children[0].source = ""
+            swipe.contentChildren[i].children[j].children[0].source = ""
           }
         }
       }
