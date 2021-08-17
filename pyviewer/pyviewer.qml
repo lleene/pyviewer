@@ -1,5 +1,5 @@
-import QtQuick.Controls 2.4
-import QtQuick 2.1
+import QtQuick.Controls 
+import QtQuick
 
 ApplicationWindow {
   id: main
@@ -38,10 +38,6 @@ ApplicationWindow {
       viewer.load_next_archive(-1);
       swipe.currentIndex = 0
     }
-    Component.onCompleted: {
-      viewer.images_changed.connect(swipe.update_images)
-      viewer.set_max_image_count(swipe.max_image_count)
-    }
   }
   SwipeView {
     id: swipe
@@ -75,15 +71,15 @@ ApplicationWindow {
     function update_images() {
       for (var i = 0; i < swipe.panels ; i++)  {
         for ( var j = 0; j < main.layout[0] * main.layout[1]; j++ ) {
-          if ( j+i*(main.layout[0] * main.layout[1]) < viewer.length ) {
-            var index = j+i*(main.layout[0] * main.layout[1])
-            swipe.contentChildren[i].children[j].children[0].source = "data:image;base64," + viewer.images[index]
-          }
-          else {
-            swipe.contentChildren[i].children[j].children[0].source = ""
-          }
+          var index = j+i*(main.layout[0] * main.layout[1])
+          if ( index < viewer.length ) swipe.contentChildren[i].children[j].children[0].source = "data:image;base64," + viewer.images[index]
+          else swipe.contentChildren[i].children[j].children[0].source = ""
         }
       }
+    }
+    Component.onCompleted: {
+      viewer.images_changed.connect(swipe.update_images)
+      viewer.set_max_image_count(swipe.max_image_count)
     }
   }
 }

@@ -1,9 +1,9 @@
 """Main QObject with qml bindings that prompt excusion from user interface."""
 
 import sys
-from PySide2.QtCore import QByteArray, QObject, Property, Signal, Slot
-from PySide2.QtQml import QQmlApplicationEngine
-from PySide2.QtWidgets import QApplication
+from PySide6.QtCore import QByteArray, QObject, Property, Signal, Slot
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtWidgets import QApplication
 from pyviewer import BooruLoader, ImageLoader
 
 class PyViewer(QObject):
@@ -31,7 +31,7 @@ class PyViewer(QObject):
         """Number of available images."""
         return len(self.imageloader._images)
 
-    @Property( list , notify=images_changed )
+    @Property(list , notify=images_changed)
     def images(self):
         """Return extracted image at index."""
         return [ QByteArray(image).toBase64() for image in self.imageloader._images ]
@@ -74,6 +74,6 @@ def start_viewer(root_dir):
     if not engine.rootObjects():
         sys.exit(-1)
 
-    ret = app.exec_()
+    ret = app.exec()
     # pyviewer.imageloader.save_tag_filter(".")
     sys.exit(ret)

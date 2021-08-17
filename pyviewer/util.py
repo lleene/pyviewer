@@ -27,20 +27,18 @@ class ArchiveManager:
             return json.loads(self.load_file(archive,"metadata.json"))
 
     def load_archive(self, archive_path, count=None):
+        # TODO asses file integrity here
         """Extract and return images as array of binary objects."""
         with ZipFile(archive_path, "r") as archive:
-            images = [
+            image_list = [
                 file.filename
                 for file in archive.infolist()
                 if ".png" == file.filename[-4:] or ".jpg" == file.filename[-4:]
             ]
-            images.sort()
+            image_list.sort()
             if count :
-                count = min(count, len(images))
-            else:
-                count = len(images)
-            return [ self.load_file(archive, image_name) for
-                      image_name in images[0:count]]
+                image_list = image_list[0:min(count, len(image_list))]
+            return [ self.load_file(archive, image_name) for image_name in image_list ]
 
     def order_images(self, images):
         """Map list into user-friendly flat list of files."""
@@ -50,7 +48,7 @@ class ArchiveManager:
         for index in range(
             min(
                 math.ceil(sum(set_size) / self.modulo),
-                math.ceil(self.max_image_count / self.modulo) - 1,
+                math.ceil(self.max_image_count / self.modulo),
             )
         ):
             if set_index[index % len(set_size)] \
