@@ -6,10 +6,9 @@ ApplicationWindow {
   flags: Qt.Window | Qt.FramelessWindowHint
   title: qsTr("Reviewer Gallery")
   visible: true
-  property var layout: [2,1]
+  property var layout: [2,2]
   width: 1600
   height: 1000
-
   Rectangle {
     id: handler
     anchors.fill: parent
@@ -44,7 +43,6 @@ ApplicationWindow {
       viewer.set_max_image_count(swipe.max_image_count)
     }
   }
-
   SwipeView {
     id: swipe
     currentIndex: 0
@@ -66,20 +64,20 @@ ApplicationWindow {
             Image {
               anchors.fill: parent
               fillMode: Image.PreserveAspectCrop
+              sourceSize.width: main.width / main.layout[0]
+              sourceSize.height: main.height / main.layout[1]
               source: ""
             }
           }
         }
       }
     }
-
     function update_images() {
-      console.log(viewer.length)
       for (var i = 0; i < swipe.panels ; i++)  {
         for ( var j = 0; j < main.layout[0] * main.layout[1]; j++ ) {
           if ( j+i*(main.layout[0] * main.layout[1]) < viewer.length ) {
             var index = j+i*(main.layout[0] * main.layout[1])
-            swipe.contentChildren[i].children[j].children[0].source = "data:" + viewer.image
+            swipe.contentChildren[i].children[j].children[0].source = "data:image;base64," + viewer.images[index]
           }
           else {
             swipe.contentChildren[i].children[j].children[0].source = ""

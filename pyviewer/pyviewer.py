@@ -31,11 +31,10 @@ class PyViewer(QObject):
         """Number of available images."""
         return len(self.imageloader._images)
 
-    @Property( QByteArray, notify=images_changed )
-    def image(self):
+    @Property( list , notify=images_changed )
+    def images(self):
         """Return extracted image at index."""
-        #return QByteArray(self.imageloader._images[0])
-        return QByteArray(self.imageloader._images[0])
+        return [ QByteArray(image).toBase64() for image in self.imageloader._images ]
 
     @Slot(int)
     def load_next_archive(self, direction):

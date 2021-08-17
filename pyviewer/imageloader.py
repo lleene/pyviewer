@@ -39,7 +39,7 @@ class ImageLoader(TagManager, ArchiveManager):
 
     def extract_current_index(self):
         """Extract archives associated with active tag."""
-        images = [ self.load_archive(media) for index,media in enumerate(self.media_list) if index < 4 ]
+        images = [ self.load_archive(media,self.max_image_count) for index, media in enumerate(self.media_list) if index < 4 ]
         self.order_images(images)
 
     def _check_archive(self, archive_path):
