@@ -4,6 +4,8 @@ import math
 import json
 import os
 
+import requests
+from xmltodict import parse as xmlparse
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory
 
@@ -162,3 +164,93 @@ class TagManager():
             len(self.tags),
             "remain",
         )
+
+
+class DoujinDB():
+
+    def __init__(self, site_url="http://doujinshi.mugimugi.org/api/050e77672f3d53170ac3"):
+        self.site_url = site_url
+        self.client = requests.Session()
+        headers = {'user-agent': 'ddbRequest',
+                   'content-type': 'application/json; charset=utf-8'}
+        self.client.headers = headers
+        self.last_call = {}
+
+    def _request(self, url, method='GET'):
+        try:
+            response = self.client.request(method, url)
+            self.last_call.update({
+                'url': response.url,
+                'status_code': response.status_code,
+                'status': response.status_code,
+                'headers': response.headers
+                })
+            if response.status_code in (200, 201, 202, 204):
+                # PUT returns empty JSON entry on success
+                return xmlparse(response.content)
+            raise error("In _request", response.status_code, response.url)
+        except requests.exceptions.Timeout:
+            raise error("Timeout! url: {0}".format(response.url))
+        except ValueError as e:
+            raise error("JSON Error: {0} in line {1} column {2}".format(e.msg, e.lineno, e.colno))
+
+    @classmethod
+    def parse_entry(cls, entry):
+        result = {}
+        if "@ID" in entry and entry["@ID"]:
+            result["id"] = int(entry["@ID"][1:])
+        if "NAME_EN" in entry and entry["NAME_EN"]:
+            result["title"] = entry["NAME_EN"]
+        elif "NAME_JP" in entry and entry["NAME_JP"]:
+            result["title"] = entry["NAME_JP"]
+        elif "NAME_R" in entry and entry["NAME_R"]:
+            result["title"] = entry["NAME_R"]
+        if "DATA_PAGES" in entry and entry["DATA_PAGES"]:
+            result["pages"] = entry["DATA_PAGES"]
+        LANG_MAP = ["Unknown","English","Japanese","Chinese","Korean","French","German","Spanish","Italian","Russian"]
+        if "DATA_LANGUAGE" in entry and entry["DATA_LANGUAGE"]:
+            result["language"] = [LANG_MAP[int(entry["DATA_LANGUAGE"])]]
+        result["author"] = []
+        for item in [ item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "author"]:
+             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
+                 if tag in item and item[tag]:
+                     result["author"].append(item[tag])
+        result["character"] = []
+        for item in [item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "character"]:
+             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
+                 if tag in item and item[tag]:
+                     result["character"].append(item[tag])
+        result["parody"] = []
+        for item in [item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "parody"]:
+             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
+                 if tag in item and item[tag]:
+                     result["character"].append(item[tag])
+        result["tags"] = []
+        for item in [item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "contents"]:
+             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
+                 if tag in item and item[tag]:
+                     result["tags"].append(item[tag])
+        return result
+
+    def search(self, api, tag):
+        """Make a object API query and extract the list of books in response."""
+        url = "{}/?S=objectSearch&T={}&sn={}".format(self.site_url, api, tag)
+        response = self._request(url)
+        if "LIST" in response and "BOOK" in response["LIST"]:
+            if type(response["LIST"]["BOOK"]) == type([]):
+                return [ self.parse_entry(entry) for entry in response["LIST"]["BOOK"] ]
+            elif type(response["LIST"]["BOOK"]) == type({}):
+                return [ self.parse_entry( response["LIST"]["BOOK"] ) ]
+
+    def titles(self, tag):
+        return self.search("title", tag)
+
+    def circles(self, tag):
+        return self.search("circle", tag)
+
+    def author(self, tag):
+        return self.search("author",tag)
+
+    def previews(self, item_list):
+         return [ "https://img.doujinshi.org/big/{}/{}.jpg".format(math.floor(item["id"]/2000), item["id"])
+                for item in item_list if "id" in item ]

@@ -4,6 +4,7 @@ tests/data/tmp*
 tests/data/*.json*
 mapfile.json
 tagfilter.json*
+data/
 
 # ---> Python
 # Byte-compiled / optimized / DLL files

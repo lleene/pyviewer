@@ -128,7 +128,7 @@ class BooruLoader(TagManager):
         """Query booru for media file list of current tag."""
         if self._worker and self._worker.is_alive():
             self._worker.join()
-        if self.tag in self._file_list.keys() and self._file_list[self.tag] != "":
+        if self.tag in self._file_list and self._file_list[self.tag] != "":
             file_list = self._file_list[self.tag]
         else:
             file_list = ""

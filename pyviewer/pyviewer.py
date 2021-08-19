@@ -1,9 +1,9 @@
 """Main QObject with qml bindings that prompt excusion from user interface."""
 
 import sys
-from PySide6.QtCore import QByteArray, QObject, Property, Signal, Slot
-from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtWidgets import QApplication
+from PySide2.QtCore import QByteArray, QObject, Property, Signal, Slot
+from PySide2.QtQml import QQmlApplicationEngine
+from PySide2.QtWidgets import QApplication
 from pyviewer import BooruLoader, ImageLoader
 
 class PyViewer(QObject):
@@ -74,6 +74,6 @@ def start_viewer(root_dir):
     if not engine.rootObjects():
         sys.exit(-1)
 
-    ret = app.exec()
+    ret = app.exec_()
     # pyviewer.imageloader.save_tag_filter(".")
     sys.exit(ret)
