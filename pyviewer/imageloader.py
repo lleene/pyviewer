@@ -7,8 +7,40 @@ import threading
 
 import psycopg2
 from PIL import Image
-from pyviewer import ArchiveManager, TagManager
+from pyviewer import ArchiveManager, TagManager, DoujinDB
 
+
+class MetaMatcher(ArchiveManager, DoujinDB):
+    """Archive manager for updating and reviewing metadata using doujindb as reference."""
+    def __init__(self):
+        """Create empty media handler."""
+        ArchiveManager.__init__(self)
+        DoujinDB.__init__(self)
+        self.index = 0
+        self._media_map = []
+        self._previews = []
+
+    def extract_current_index(self):
+        """Extract archives associated with current index."""
+        self._images = self.load_archive(self.media["path"])
+        self._previews = self.titles(self.media["name"])
+        for preview in self._previews:
+            self.add_preview(preview)
+
+    def load_file_map(self, media_object):
+        self._media_map = [
+                {"path":archive, "name":archive[len(media_object + "/"):-4]}
+                for archive in glob.glob(media_object + "/*.zip")
+                if not self.fetch_meta_file(archive)
+            ]
+
+    def adjust_index(self, direction):
+        if len(self._media_map) > 1:
+            self.index = (self.index + direction) % len(self._media_map)
+
+    @property
+    def media(self):
+        return self._media_map[self.index]
 
 class ImageLoader(TagManager, ArchiveManager):
     """Archive manager for loading and organizing images with tag filters."""
@@ -60,7 +92,6 @@ class ImageLoader(TagManager, ArchiveManager):
                     self._check_archive(archive_path)
                 except Image.UnidentifiedImageError as error:
                     print("Cannot open {}: {}".format(archive_path, error))
-
 
 
 class BooruLoader(TagManager):

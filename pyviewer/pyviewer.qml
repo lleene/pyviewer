@@ -1,4 +1,4 @@
-import QtQuick.Controls 
+import QtQuick.Controls
 import QtQuick
 
 ApplicationWindow {
@@ -6,7 +6,7 @@ ApplicationWindow {
   flags: Qt.Window | Qt.FramelessWindowHint
   title: qsTr("Reviewer Gallery")
   visible: true
-  property var layout: [2,2]
+  property var layout: [4,1]
   width: 1600
   height: 1000
   Rectangle {
@@ -16,33 +16,39 @@ ApplicationWindow {
     focus: true
     Keys.enabled: true
     Keys.onEscapePressed: Qt.quit()
-    Keys.onLeftPressed: swipe.currentIndex = swipe.currentIndex <= 0 ? swipe.panels - 1 : swipe.currentIndex - 1
-    Keys.onRightPressed: swipe.currentIndex = swipe.currentIndex >= swipe.panels - 1 ? 0 : swipe.currentIndex + 1
-    Keys.onTabPressed: {
-      viewer.update_tag_filter(false);
-      swipe.currentIndex = 0
+  }
+  Column {
+    id: info
+    anchors.right: parent.right
+    anchors.left: parent.left
+    anchors.top: parent.top
+    Image {
+      fillMode: Image.PreserveAspectCrop
+      width: info.width / 4
+      height: info.height
+      source: ""
     }
-    Keys.onSpacePressed: {
-      viewer.update_tag_filter(true);
-      swipe.currentIndex = 0
+    Text {
+      text: qsTr("Hello \n World")
+      anchors.centerIn: parent
+     }
+    Image {
+      fillMode: Image.PreserveAspectCrop
+      width: info.width / 4
+      height: info.height
+      source: ""
     }
-    Keys.onBacktabPressed: {
-      viewer.undo_last_filter();
-      swipe.currentIndex = 0
-    }
-    Keys.onUpPressed: {
-      viewer.load_next_archive(1);
-      swipe.currentIndex = 0
-    }
-    Keys.onDownPressed: {
-      viewer.load_next_archive(-1);
-      swipe.currentIndex = 0
-    }
+    Text {
+      text: qsTr("Hello \n World")
+      anchors.centerIn: parent
+     }
   }
   SwipeView {
     id: swipe
     currentIndex: 0
-    anchors.fill: parent
+    anchors.right: parent.right
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
     property int max_image_count: 20
     property int panels: Math.floor(swipe.max_image_count/(main.layout[0] * main.layout[1]))
     Repeater {
@@ -60,8 +66,8 @@ ApplicationWindow {
             Image {
               anchors.fill: parent
               fillMode: Image.PreserveAspectCrop
-              sourceSize.width: main.width / main.layout[0]
-              sourceSize.height: main.height / main.layout[1]
+              sourceSize.width: swipe.width / main.layout[0]
+              sourceSize.height: swipe.height / main.layout[1]
               source: ""
             }
           }

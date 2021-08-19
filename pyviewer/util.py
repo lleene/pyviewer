@@ -16,21 +16,26 @@ class ArchiveManager:
     def __init__(self):
         """Init manager empty data structure."""
         self.max_image_count = 40
-        self.modulo = 4
         self._images = []
 
-    def load_file(self, archive, filename):
+    @classmethod
+    def load_file(cls, archive, filename):
         with archive.open(filename,'r') as file:
             return file.read()
 
-    def _fetch_meta_file(self, file_path):
+    @classmethod
+    def fetch_meta_file(cls, file_path):
         """Load archive metadata file into temp dir and return contents."""
         with ZipFile(file_path, "r") as archive:
-            return json.loads(self.load_file(archive,"metadata.json"))
+            if "metadata.json" not in [ name.filename for name in archive.filelist ]:
+                return None
+            return json.loads(cls.load_file(archive,"metadata.json"))
 
     def load_archive(self, archive_path, count=None):
         # TODO asses file integrity here
         """Extract and return images as array of binary objects."""
+        if not count:
+            count = self.max_image_count
         with ZipFile(archive_path, "r") as archive:
             image_list = [
                 file.filename
@@ -42,15 +47,18 @@ class ArchiveManager:
                 image_list = image_list[0:min(count, len(image_list))]
             return [ self.load_file(archive, image_name) for image_name in image_list ]
 
-    def order_images(self, images):
-        """Map list into user-friendly flat list of files."""
+    def order_images(self, images, modulo=4):
+        """Map list into user-friendly flat list of files using interlaced groups."""
         set_size = [len(set) for set in images]
-        set_index = [self.modulo] * len(images)
         ordered_list = []
+        if sum(set_size) <= 0:
+            self._images = ordered_list
+            return
+        set_index = [modulo] * len(images)
         for index in range(
             min(
-                math.ceil(sum(set_size) / self.modulo),
-                math.ceil(self.max_image_count / self.modulo),
+                math.ceil(sum(set_size) / modulo),
+                math.ceil(self.max_image_count / modulo),
             )
         ):
             if set_index[index % len(set_size)] \
@@ -58,17 +66,17 @@ class ArchiveManager:
                 ordered_list.extend(
                     images[index % len(set_size)][
                         set_index[index % len(set_size)]
-                        - self.modulo: set_index[index % len(set_size)]
+                        - modulo: set_index[index % len(set_size)]
                     ]
                 )
             else:
                 ordered_list.extend(
                     images[index % len(set_size)][
                         set_index[index % len(set_size)]
-                        - self.modulo: set_size[index % len(set_size)]
+                        - modulo: set_size[index % len(set_size)]
                     ]
                 )
-            set_index[index % len(set_size)] += self.modulo
+            set_index[index % len(set_size)] += modulo
         self._images = ordered_list
 
 class TagManager():
@@ -122,7 +130,8 @@ class TagManager():
 
     def adjust_index(self, direction):
         """Accumulate the current index with direction."""
-        self.index = (self.index + direction) % len(self.tags)
+        if len(self.tags) > 1:
+            self.index = (self.index + direction) % len(self.tags)
 
     def _tag_index(self, tag_name):
         """Find tag name in filtered tag list to derive its index."""
@@ -200,8 +209,16 @@ class DoujinDB():
             raise error("JSON Error: {0} in line {1} column {2}".format(e.msg, e.lineno, e.colno))
 
     @classmethod
+    def _aggregate_names(cls, entry, type_name):
+        aggregate = []
+        for item in [item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == type_name]:
+             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
+                 if tag in item and item[tag]:
+                     aggregate.append(item[tag])
+
+    @classmethod
     def parse_entry(cls, entry):
-        """Reorganize XML structure from doujindb into a siple dict."""
+        """Reorganize XML structure from doujindb into a simple dict."""
         result = {}
         if "@ID" in entry and entry["@ID"]:
             result["id"] = int(entry["@ID"][1:])
@@ -216,36 +233,24 @@ class DoujinDB():
         LANG_MAP = ["Unknown","English","Japanese","Chinese","Korean","French","German","Spanish","Italian","Russian"]
         if "DATA_LANGUAGE" in entry and entry["DATA_LANGUAGE"]:
             result["language"] = [LANG_MAP[int(entry["DATA_LANGUAGE"])]]
-        result["author"] = []
-        for item in [ item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "author"]:
-             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
-                 if tag in item and item[tag]:
-                     result["author"].append(item[tag])
-        result["character"] = []
-        for item in [item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "character"]:
-             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
-                 if tag in item and item[tag]:
-                     result["character"].append(item[tag])
-        result["parody"] = []
-        for item in [item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "parody"]:
-             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
-                 if tag in item and item[tag]:
-                     result["character"].append(item[tag])
-        result["tags"] = []
-        for item in [item for item in entry["LINKS"]["ITEM"] if "@TYPE" in item and item["@TYPE"] == "contents"]:
-             for tag in ["NAME_EN","NAME_JP","NAME_R"]:
-                 if tag in item and item[tag]:
-                     result["tags"].append(item[tag])
+        result["names"] = []
+        for tag in ["NAME_EN","NAME_JP","NAME_R"]:
+            if tag in entry and entry[tag]:
+                result["names"].append(entry[tag])
+        result["author"] = cls._aggregate_names(entry,"author")
+        result["character"] = cls._aggregate_names(entry,"character")
+        result["parody"] = cls._aggregate_names(entry,"parody")
+        result["tags"] =  cls._aggregate_names(entry,"contents")
         return result
 
     def search(self, api, tag):
         """Make a object API query and extract the list of books in response."""
-        url = "{}/?S=objectSearch&T={}&sn={}".format(self._req_url, api, tag)
+        url = "{}/?S=objectSearch&T={}&sn={}".format(self._req_url, api, tag.replace(" ","+"))
         response = self._request(url)
         if "LIST" in response and "BOOK" in response["LIST"]:
             if type(response["LIST"]["BOOK"]) == type([]):
                 return [ self.parse_entry(entry) for entry in response["LIST"]["BOOK"] ]
-            elif type(response["LIST"]["BOOK"]) == type({}):
+            else :
                 return [ self.parse_entry( response["LIST"]["BOOK"] ) ]
 
     def titles(self, tag):
@@ -260,7 +265,16 @@ class DoujinDB():
         """Search for items matching author tag"""
         return self.search("author",tag)
 
-    def previews(self, item_list):
-        """Determin preview URL for each doujindb search result."""
-        return [ "{}/{}/{}.jpg".format(self._img_url, math.floor(item["id"]/2000), item["id"])
-                for item in item_list if "id" in item ]
+    def add_preview(self, item):
+        """Determin preview URL and append image to search result."""
+        if "id" in item:
+            url = "{}/{}/{}.jpg".format(self._img_url, math.floor(item["id"]/2000), item["id"])
+            response = requests.get(url)
+            self.last_call.update({
+                'url': response.url,
+                'status_code': response.status_code,
+                'status': response.status_code,
+                'headers': response.headers
+                })
+            if response.status_code in (200, 201, 202, 204):
+                item["image"] = response.content

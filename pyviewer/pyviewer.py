@@ -41,25 +41,13 @@ class PyViewer(QObject):
         self.imageloader.adjust_index(direction)
         self.load_images()
 
-    @Slot(bool)
-    def update_tag_filter(self, filter_bool):
-        """Store tag result and refresh viewer."""
-        self.imageloader.update_tag_filter(filter_bool)
-        self.load_images()
-
-    @Slot()
-    def undo_last_filter(self):
-        """Undo the last tagfilter change and refresh viewer."""
-        self.imageloader.undo_last_filter()
-        self.load_images()
-
     @Slot(int)
     def set_max_image_count(self, count):
         """Set the maximum number of Images."""
         self.imageloader.max_image_count = count
 
 
-def start_viewer(root_dir):
+def start_viewer(media_dir):
     """Initialize the QML application and load media in the root_dir."""
     app = QApplication()
     engine = QQmlApplicationEngine()
@@ -67,7 +55,7 @@ def start_viewer(root_dir):
     pyviewer = PyViewer()
     engine.rootContext().setContextProperty("viewer", pyviewer)
     engine.load("pyviewer/pyviewer.qml")
-    pyviewer.load_file_map(".", root_dir)
+    pyviewer.load_file_map(".", media_dir)
     pyviewer.images_changed.emit()
 
     if not engine.rootObjects():
