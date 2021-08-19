@@ -167,9 +167,13 @@ class TagManager():
 
 
 class DoujinDB():
+    """Request handler for sending queries to the doujindb API."""
 
-    def __init__(self, site_url="http://doujinshi.mugimugi.org/api/050e77672f3d53170ac3"):
-        self.site_url = site_url
+    def __init__(self, api_key="050e77672f3d53170ac3"):
+        # TODO Cleanup API key interface and exceptions
+        """Create http client with a simple agent."""
+        self._req_url = "http://doujinshi.mugimugi.org/api/{}".format(api_key)
+        self._img_url = "https://img.doujinshi.org/big"
         self.client = requests.Session()
         headers = {'user-agent': 'ddbRequest',
                    'content-type': 'application/json; charset=utf-8'}
@@ -177,6 +181,7 @@ class DoujinDB():
         self.last_call = {}
 
     def _request(self, url, method='GET'):
+        """Perform HTTP request and expect xml response from doujindb."""
         try:
             response = self.client.request(method, url)
             self.last_call.update({
@@ -196,6 +201,7 @@ class DoujinDB():
 
     @classmethod
     def parse_entry(cls, entry):
+        """Reorganize XML structure from doujindb into a siple dict."""
         result = {}
         if "@ID" in entry and entry["@ID"]:
             result["id"] = int(entry["@ID"][1:])
@@ -234,7 +240,7 @@ class DoujinDB():
 
     def search(self, api, tag):
         """Make a object API query and extract the list of books in response."""
-        url = "{}/?S=objectSearch&T={}&sn={}".format(self.site_url, api, tag)
+        url = "{}/?S=objectSearch&T={}&sn={}".format(self._req_url, api, tag)
         response = self._request(url)
         if "LIST" in response and "BOOK" in response["LIST"]:
             if type(response["LIST"]["BOOK"]) == type([]):
@@ -243,14 +249,18 @@ class DoujinDB():
                 return [ self.parse_entry( response["LIST"]["BOOK"] ) ]
 
     def titles(self, tag):
+        """Search for items matching title tag"""
         return self.search("title", tag)
 
     def circles(self, tag):
+        """Search for items matching author circle"""
         return self.search("circle", tag)
 
     def author(self, tag):
+        """Search for items matching author tag"""
         return self.search("author",tag)
 
     def previews(self, item_list):
-         return [ "https://img.doujinshi.org/big/{}/{}.jpg".format(math.floor(item["id"]/2000), item["id"])
+        """Determin preview URL for each doujindb search result."""
+        return [ "{}/{}/{}.jpg".format(self._img_url, math.floor(item["id"]/2000), item["id"])
                 for item in item_list if "id" in item ]

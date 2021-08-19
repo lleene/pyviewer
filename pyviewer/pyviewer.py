@@ -4,7 +4,7 @@ import sys
 from PySide2.QtCore import QByteArray, QObject, Property, Signal, Slot
 from PySide2.QtQml import QQmlApplicationEngine
 from PySide2.QtWidgets import QApplication
-from pyviewer import BooruLoader, ImageLoader
+from pyviewer import ImageLoader
 
 class PyViewer(QObject):
     """QObject for binging user interface to imageloader."""
@@ -14,7 +14,6 @@ class PyViewer(QObject):
         """Initialize image loader backend and load defaults."""
         super().__init__(parent)
         self.imageloader = ImageLoader()
-        # self.imageloader = BooruLoader()
 
     def load_images(self):
         """Prompt loader to extract new set of files and emit change."""
@@ -75,5 +74,4 @@ def start_viewer(root_dir):
         sys.exit(-1)
 
     ret = app.exec_()
-    # pyviewer.imageloader.save_tag_filter(".")
     sys.exit(ret)
