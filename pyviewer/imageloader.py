@@ -3,7 +3,7 @@
 import os
 import glob
 import threading
-
+import pickle
 
 import psycopg2
 from PIL import Image
@@ -19,13 +19,24 @@ class MetaMatcher(ArchiveManager, DoujinDB):
         self.index = 0
         self._media_map = []
         self._previews = []
+        self._media_cache = {}
 
     def extract_current_index(self):
         """Extract archives associated with current index."""
         self._images = self.load_archive(self.media["path"])
-        self._previews = self.titles(self.media["name"])
-        for preview in self._previews:
-            self.add_preview(preview)
+        if self.media["name"] in self._media_cache:
+            self._previews = self._media_cache[self.media["name"]]
+        else:
+            self._previews = []
+            for i in range(len(self.media["name"].split())):
+                if len(self._previews) > self.max_image_count:
+                    break
+                tag = self.media["name"] if i == 0 else " ".join(self.media["name"].split()[:-i])
+                self._previews.extend(self.titles(tag))
+            if self._previews:
+                for preview in self._previews:
+                    self.add_preview(preview)
+            self._media_cache[self.media["name"]] = self._previews
 
     def load_file_map(self, media_object):
         self._media_map = [
@@ -33,6 +44,16 @@ class MetaMatcher(ArchiveManager, DoujinDB):
                 for archive in glob.glob(media_object + "/*.zip")
                 if not self.fetch_meta_file(archive)
             ]
+
+    def load_cache(self, run_dir):
+        if os.access(os.path.join(run_dir, "meta_data.json"), os.R_OK):
+            with open(os.path.join(run_dir, "meta_data.json"), "rb") as file:
+                self._media_cache = pickle.load(file)
+
+    def save_cache(self, run_dir):
+        if os.access(os.path.join(run_dir), os.W_OK):
+            with open(os.path.join(run_dir, "meta_data.json"), "wb") as file:
+                pickle.dump(self._media_cache, file, pickle.HIGHEST_PROTOCOL)
 
     def adjust_index(self, direction):
         if len(self._media_map) > 1:

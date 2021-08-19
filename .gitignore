@@ -2,6 +2,7 @@
 temp
 tests/data/tmp*
 tests/data/*.json*
+meta_data.json
 mapfile.json
 tagfilter.json*
 data/

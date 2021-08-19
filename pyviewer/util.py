@@ -252,6 +252,7 @@ class DoujinDB():
                 return [ self.parse_entry(entry) for entry in response["LIST"]["BOOK"] ]
             else :
                 return [ self.parse_entry( response["LIST"]["BOOK"] ) ]
+        return []
 
     def titles(self, tag):
         """Search for items matching title tag"""
