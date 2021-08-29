@@ -3,12 +3,14 @@
 import math
 import json
 import os
-
 import requests
+import secrets
+
 from xmltodict import parse as xmlparse
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory
 
+#  https://www.mangaupdates.com/series.html?search=okusan&output=json&page=1
 
 class ArchiveManager:
     """Simple file handler for compressed archives."""
@@ -174,6 +176,68 @@ class TagManager():
             "remain",
         )
 
+cookies={'MALHLOGSESSID': '09600cb730ef150cb482e3e57a4268f2', 'MALSESSIONID':'vledmt4vrjqcg2d1to2k394sl5'}
+
+class MyAnimeListDB():
+    """Request handler for sending queries to the doujindb API."""
+
+    def __init__(self, client_id, client_secret):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.code_verifier = self.get_new_code_verifier()
+        self.print_new_authorisation_url()
+        self.token = self.generate_new_token(input("Enter Code:"))
+        # TODO Cleanup API key interface and exceptions
+        """Create http client with a simple agent."""
+        self._req_url = "https://api.myanimelist.net/v2"
+        self.client = requests.Session()
+
+        for k,v in {'MALHLOGSESSID': '09600cb730ef150cb482e3e57a4268f2', 'MALSESSIONID':'vledmt4vrjqcg2d1to2k394sl5','m_gdpr_mdl_5':'1','is_logged_in':'1'}.items():
+          cookie = requests.cookies.create_cookie(domain="myanimelist.net",name=k,value=v)
+          self.client.cookies.set_cookie(cookie)
+        self.client.headers = {'user-agent': 'ddbRequest', 'content-type': 'application/json; charset=utf-8'}
+        self.last_call = {}
+
+    def get_new_code_verifier(self) -> str:
+        token = secrets.token_urlsafe(100)
+        return token[:128]
+
+    def new_authorisation_url(self, cookies: dict) -> str:
+        url = "https://myanimelist.net/v1/oauth2/authorize?response_type=code&client_id={}&code_challenge={}".format(self.client_id, self.code_verifier)
+        print(url)
+
+    def generate_new_token(self, authorisation_code: str) -> dict:
+        url = 'https://myanimelist.net/v1/oauth2/token'
+        data = {
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'code': authorisation_code,
+            'code_verifier': self.code_verifier,
+            'grant_type': 'authorization_code'
+        }
+        response = requests.post(url, data)
+        response.raise_for_status()  # Check whether the requests contains errors
+        token = response.json()
+        response.close()
+        print('Token generated successfully!')
+        return token
+
+    def titles(self, tag):
+        """Search for items matching title tag"""
+        url = "{}/manga?q={}".format(self._req_url, tag.replace(" ","+"))
+        response = self.client.request("GET", url)
+        self.last_call.update({
+            'url': response.url,
+            'status_code': response.status_code,
+            'status': response.status_code,
+            'headers': response.headers
+            })
+        if response.status_code in (200, 201, 202, 204):
+            # PUT returns empty JSON entry on success
+            return response.content
+
+    def add_preview(self, item):
+        pass
 
 class DoujinDB():
     """Request handler for sending queries to the doujindb API."""
@@ -279,3 +343,6 @@ class DoujinDB():
                 })
             if response.status_code in (200, 201, 202, 204):
                 item["image"] = response.content
+
+
+class malOAuth2():

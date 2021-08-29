@@ -1,5 +1,6 @@
-import QtQuick.Controls 2.0
-import QtQuick 2.0
+import QtQuick.Controls 2.13
+import QtQuick.Layouts 1.15
+import QtQuick 2.13
 
 ApplicationWindow {
   id: main
@@ -11,36 +12,11 @@ ApplicationWindow {
   property int max_image_count: 20
   width: 1600
   height: 1000
-  SwipeView {
-    id: info
-    anchors.top: parent.top
-    height: main.height/2
-    width: main.width
-    Repeater {
-      model: main.max_image_count
-      Item {
-        width: main.width / main.layout[0]
-        height: info.height
-        Image {
-          anchors.fill: parent
-          fillMode: Image.PreserveAspectCrop
-          source: ""
-        }
-      }
-    }
-    function update_images() {
-      for (var i = 0; i < main.max_image_count ; i++)  {
-          if ( i < viewer.length_images ) info.contentChildren[i].children[0].source = "data:image;base64," + viewer.images[i]
-          else info.contentChildren[i].children[0].source = ""
-      }
-      info_text.text = viewer.file_name
-    }
-  }
   Rectangle {
     id: handler
-    anchors.bottom: info.bottom
-    anchors.left: info.left
-    width: main.width / main.layout[0]
+    anchors.bottom: main.bottom
+    anchors.left: main.left
+    width: main.width/4
     height: info.height/8
     color: "black";
     focus: true
@@ -65,38 +41,70 @@ ApplicationWindow {
       smooth: true
     }
   }
-  SwipeView {
-    id: swipe
-    anchors.bottom: parent.bottom
-    width: main.width
-    height: main.height/2
-    Repeater {
-      model: main.max_image_count
-      Item {
-        width: main.width / main.layout[0]
-        height: swipe.height
-        Image {
-          width: main.width / main.layout[0]
-          height: swipe.height
-          fillMode: Image.PreserveAspectCrop
-          source: ""
-        }
-        Rectangle {
-          color: "black"
-          anchors.bottom: parent.bottom
-          width: main.width / main.layout[0]
-          height: swipe.height/8
-          Text {
-            anchors.centerIn: parent
-            text: ""
-            font.pixelSize: 16
-            color: "white"
-            smooth: true
+  ColumnLayout {
+    anchors.fill: parent
+    spacing: 0
+    SwipeView {
+      id: info
+      Layout.preferredHeight: main.height / 2
+      Layout.preferredWidth: main.width / 2
+      Repeater {
+        width: info.width / 4
+        height: info.height
+        model: main.max_image_count
+        Item {
+          Image {
+            width: main.width / 4
+            height: main.height / 2
+            fillMode: Image.PreserveAspectCrop
+            source: ""
           }
         }
       }
     }
-    function update_images() { // .children[0]
+    SwipeView {
+      id: swipe
+      Layout.preferredHeight: main.height / 2
+      Layout.fillWidth: true
+      Repeater {
+        model: main.max_image_count
+        Item {
+          //width: swipe.width / 4
+          //height: swipe.height
+          //anchors.centerIn: parent
+          Image {
+            width: main.width / 4
+            height: main.height / 2
+            fillMode: Image.PreserveAspectCrop
+            source: ""
+          }
+          /*
+          Rectangle {
+            color: "black"
+            anchors.bottom: parent.bottom
+            height: swipe.height/8
+            Text {
+              anchors.centerIn: parent
+              text: ""
+              font.pixelSize: 16
+              color: "white"
+              smooth: true
+            }
+          }
+          */
+        }
+      }
+    }
+  }
+  Component.onCompleted: {
+    function update_info() {
+      for (var i = 0; i < main.max_image_count ; i++)  {
+          if ( i < viewer.length_images ) info.contentChildren[i].children[0].source = "data:image;base64," + viewer.images[i]
+          else info.contentChildren[i].children[0].source = ""
+      }
+      info_text.text = viewer.file_name
+    }
+    function update_swipe() { // .children[0]
       for (var i = 0; i < main.max_image_count ; i++)  {
           if ( i < viewer.length_previews ) {
             swipe.contentChildren[i].children[0].source = "data:image;base64," + viewer.previews[i]
@@ -108,10 +116,8 @@ ApplicationWindow {
           }
       }
     }
-    Component.onCompleted: {
-      viewer.images_changed.connect(swipe.update_images)
-      viewer.images_changed.connect(info.update_images)
-      viewer.set_max_image_count(main.max_image_count)
-    }
+    viewer.images_changed.connect(update_swipe)
+    viewer.images_changed.connect(update_info)
+    viewer.set_max_image_count(main.max_image_count)
   }
 }

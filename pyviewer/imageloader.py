@@ -5,12 +5,12 @@ import glob
 import threading
 import pickle
 
-import psycopg2
+import psycopg2 
 from PIL import Image
-from pyviewer import ArchiveManager, TagManager, DoujinDB
+from pyviewer import ArchiveManager, TagManager, DoujinDB, MyAnimeListDB
 
 
-class MetaMatcher(ArchiveManager, DoujinDB):
+class MetaMatcher(ArchiveManager, MyAnimeListDB):
     """Archive manager for updating and reviewing metadata using doujindb as reference."""
     def __init__(self):
         """Create empty media handler."""
