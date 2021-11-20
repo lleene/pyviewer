@@ -2,9 +2,7 @@
 
 import sys
 from PySide2.QtCore import QByteArray, QObject, Property, Signal, Slot
-from PySide2.QtQml import QQmlApplicationEngine
-from PySide2.QtWidgets import QApplication
-from pyviewer import BooruLoader
+from .imageloader import ImageLoader
 
 
 class PyViewer(QObject):
@@ -15,7 +13,7 @@ class PyViewer(QObject):
     def __init__(self, parent=None):
         """Initialize image loader backend and load defaults."""
         super().__init__(parent)
-        self.imageloader = BooruLoader()
+        self.imageloader = ImageLoader()
 
     def load_images(self):
         """Prompt loader to extract new set of files and emit change."""
@@ -55,23 +53,6 @@ class PyViewer(QObject):
     def set_max_image_count(self, count):
         """Set the maximum number of Images."""
         self.imageloader.max_image_count = count
-
-
-def start_viewer(media_dir):
-    """Initialize the QML application and load media in the root_dir."""
-    app = QApplication()
-    engine = QQmlApplicationEngine()
-
-    pyviewer = PyViewer()
-    engine.rootContext().setContextProperty("viewer", pyviewer)
-    engine.load("pyviewer/pyviewer.qml")
-    pyviewer.load_file_map(media_dir)
-
-    pyviewer.images_changed.emit()
-    if not engine.rootObjects():
-        sys.exit(-1)
-    ret = app.exec_()
-    sys.exit(ret)
 
 
 # =]

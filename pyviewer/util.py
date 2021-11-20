@@ -13,7 +13,6 @@ class ArchiveManager:
     def __init__(self):
         """Init manager empty data structure."""
         self.max_image_count = 40
-        self._images = []
 
     @classmethod
     def load_file(cls, archive, filename):
@@ -30,17 +29,21 @@ class ArchiveManager:
                 return None
             return json.loads(cls.load_file(archive, "metadata.json"))
 
+    @classmethod
+    def archive_filenames(cls, zip_object):
+        return [
+            file.filename
+            for file in zip_object.infolist()
+            if ".png" == file.filename[-4:] or ".jpg" == file.filename[-4:]
+        ]
+
     def load_archive(self, archive_path, count=None):
         # TODO asses file integrity here
         """Extract and return images as array of binary objects."""
         if not count:
             count = self.max_image_count
         with ZipFile(archive_path, "r") as archive:
-            image_list = [
-                file.filename
-                for file in archive.infolist()
-                if ".png" == file.filename[-4:] or ".jpg" == file.filename[-4:]
-            ]
+            image_list = self.archive_filenames(archive)
             image_list.sort()
             if count:
                 image_list = image_list[0 : min(count, len(image_list))]
@@ -54,8 +57,7 @@ class ArchiveManager:
         set_size = [len(set) for set in images]
         ordered_list = []
         if sum(set_size) <= 0:
-            self._images = ordered_list
-            return
+            return []
         set_index = [modulo] * len(images)
         for index in range(
             min(
@@ -81,7 +83,7 @@ class ArchiveManager:
                     ]
                 )
             set_index[index % len(set_size)] += modulo
-        self._images = ordered_list
+        return ordered_list
 
 
 class TagManager:

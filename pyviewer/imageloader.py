@@ -6,7 +6,7 @@ import threading
 
 import psycopg2
 from PIL import Image
-from pyviewer import ArchiveManager, TagManager
+from .util import ArchiveManager, TagManager
 
 
 class ImageLoader(TagManager, ArchiveManager):
@@ -16,6 +16,31 @@ class ImageLoader(TagManager, ArchiveManager):
         """Create empty media handler."""
         TagManager.__init__(self)
         ArchiveManager.__init__(self)
+        self._file_list = dict()
+        self.max_image_count = 40
+        self._worker = None
+
+    @property
+    def count(self):
+        """File count."""
+        return (
+            len(self._file_list[self.tag])
+            if self.tag and self.tag in self._file_list
+            else 0
+        )
+
+    @property
+    def file_list(self):
+        """Query booru for media file list of current tag."""
+        if self._worker and self._worker.is_alive():
+            self._worker.join()
+        if self.tag in self._file_list and self._file_list[self.tag] != "":
+            file_list = self._file_list[self.tag]
+        else:
+            file_list = ""
+        self._worker = threading.Thread(target=self._update_buffer)
+        self._worker.start()
+        return file_list
 
     def _generate_tag_map(self, media_object):
         # TODO allow any tags to be matched
@@ -38,14 +63,16 @@ class ImageLoader(TagManager, ArchiveManager):
             }
         }
 
-    def extract_current_index(self):
+    @property
+    def _images(self):
         """Extract archives associated with active tag."""
-        images = [
-            self.load_archive(media, self.max_image_count)
-            for index, media in enumerate(self.media_list)
-            if index < 4
-        ]
-        self.order_images(images)
+        return self.order_images(
+            [
+                self.load_archive(media, self.max_image_count)
+                for index, media in enumerate(self.media_list)
+                if index < 4
+            ]
+        )
 
     def _check_archive(self, archive_path):
         """Validate all images in archive."""

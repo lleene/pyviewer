@@ -8,7 +8,7 @@ import secrets
 import requests
 from xmltodict import parse as xmlparse
 from tempfile import TemporaryDirectory
-from pyviewer import ArchiveManager, TagManager
+from .util import ArchiveManager, TagManager
 
 
 class MetaMatcher(ArchiveManager, MyAnimeListDB):
