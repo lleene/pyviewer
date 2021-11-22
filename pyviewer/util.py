@@ -1,185 +1,193 @@
 """utility classes for managing imageloaders."""
 
-import math
 import json
 import os
-
+from math import ceil
+from pathlib import Path
+from typing import NamedTuple, List, Dict, Set, Any, AnyStr, Tuple
 from zipfile import ZipFile
 
 
-class ArchiveManager:
+class Archive(ZipFile):
     """Simple file handler for compressed archives."""
 
-    def __init__(self):
-        """Init manager empty data structure."""
-        self.max_image_count = 40
-
-    @classmethod
-    def load_file(cls, archive, filename):
-        with archive.open(filename, "r") as file:
+    def load_file(self, file_name: str) -> AnyStr:
+        """Load file from archive by name."""
+        with self.open(file_name, "r") as file:
             return file.read()
 
-    @classmethod
-    def fetch_meta_file(cls, file_path):
-        """Load archive metadata file into temp dir and return contents."""
-        with ZipFile(file_path, "r") as archive:
-            if "metadata.json" not in [
-                name.filename for name in archive.filelist
-            ]:
-                return None
-            return json.loads(cls.load_file(archive, "metadata.json"))
+    @property
+    def meta_file(self) -> dict:
+        """Fetch the meta file from archive."""
+        return (
+            json.loads(self.load_file("metadata.json"))
+            if "metadata.json" in [elem.filename for elem in self.infolist()]
+            else {}
+        )
 
-    @classmethod
-    def archive_filenames(cls, zip_object):
+    @property
+    def image_files(self) -> List[str]:
+        """Return list of file names in archive."""
         return [
             file.filename
-            for file in zip_object.infolist()
-            if ".png" == file.filename[-4:] or ".jpg" == file.filename[-4:]
+            for file in self.infolist()
+            if file.filename[-4:] == ".png" or file.filename[-4:] == ".jpg"
         ]
 
-    def load_archive(self, archive_path, count=None):
-        # TODO asses file integrity here
+    def get_images(self, count: int = 40) -> List[AnyStr]:
         """Extract and return images as array of binary objects."""
-        if not count:
-            count = self.max_image_count
-        with ZipFile(archive_path, "r") as archive:
-            image_list = self.archive_filenames(archive)
-            image_list.sort()
-            if count:
-                image_list = image_list[0 : min(count, len(image_list))]
-            return [
-                self.load_file(archive, image_name)
-                for image_name in image_list
-            ]
+        image_list = self.image_files
+        image_list.sort()
+        return [
+            self.load_file(elem)
+            for index, elem in enumerate(image_list)
+            if index < count
+        ]
 
-    def order_images(self, images, modulo=4):
-        """Map list into user-friendly flat list of files using interlaced groups."""
-        set_size = [len(set) for set in images]
-        ordered_list = []
-        if sum(set_size) <= 0:
-            return []
-        set_index = [modulo] * len(images)
-        for index in range(
-            min(
-                math.ceil(sum(set_size) / modulo),
-                math.ceil(self.max_image_count / modulo),
-            )
-        ):
-            if (
-                set_index[index % len(set_size)]
-                < set_size[index % len(set_size)]
-            ):
-                ordered_list.extend(
-                    images[index % len(set_size)][
-                        set_index[index % len(set_size)]
-                        - modulo : set_index[index % len(set_size)]
-                    ]
-                )
-            else:
-                ordered_list.extend(
-                    images[index % len(set_size)][
-                        set_index[index % len(set_size)]
-                        - modulo : set_size[index % len(set_size)]
-                    ]
-                )
-            set_index[index % len(set_size)] += modulo
-        return ordered_list
+
+class FilterEntry(NamedTuple):
+    """Typed container presenting a tag filter entry."""
+
+    tag: str
+    state: bool
+
+
+class FilterState(NamedTuple):
+    """Typed container presenting a tag filter entry."""
+
+    tag_map: Dict[str, List[str]] = {}
+    tag_filter: List[FilterEntry] = []
 
 
 class TagManager:
-    """Tag utility to manage and filter a tag list."""
+    """Utility to manage a collection indexed and filtered by keys."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        tag_map: Dict[str, List[str]] = None,
+        tag_filter: List[FilterEntry] = None,
+    ):
         """Initialize with empty struct since loading is expensive."""
         self.index = 0
-        self._media_map = dict()
-        self._tagfilter = dict()
-        self._lasttag = ""
+        self._tag_map = tag_map or {}
+        self._filter = tag_filter or []
+        self._tagstack: List[FilterEntry] = []
 
-    def _generate_tag_map(self, media_object):
-        """Adaptable method for generating the tag map from abstract object."""
-        pass
-
-    def load_media(self, run_dir, media_object):
-        """Load tagfilter and archive map used to index archives."""
-        if os.access(os.path.join(run_dir, "tagfilter.json"), os.R_OK):
-            with open(os.path.join(run_dir, "tagfilter.json"), "r") as file:
-                self._tagfilter = json.load(file)
-        if os.access(os.path.join(run_dir, "mapfile.json"), os.R_OK):
-            with open(os.path.join(run_dir, "mapfile.json"), "r") as file:
-                self._media_map = json.load(file)
-        else:
-            self._generate_tag_map(media_object)
-            if os.access(os.path.join(run_dir), os.W_OK):
-                with open(os.path.join(run_dir, "mapfile.json"), "w") as file:
-                    json.dump(self._media_map, file)
-
-    def save_tag_filter(self, run_dir):
-        """Store tag filter from file."""
-        if os.access(os.path.join(run_dir), os.W_OK):
-            with open(os.path.join(run_dir, "tagfilter.json"), "w") as file:
-                json.dump(self._tagfilter, file)
-
-    def update_tag_filter(self, filter_bool):
+    def update_tag_filter(self, filter_bool: bool) -> bool:
         """Update tag filter with filter decision."""
-        self._lasttag = self.tag
-        if filter_bool:
-            self._tagfilter.update({self.tag: "Approve"})
-        else:
-            self._tagfilter.update({self.tag: "Reject"})
+        if self.tag in self.filter:
+            return False
+        self._tagstack.append(FilterEntry(self.tag, filter_bool))
+        return True
 
-    def undo_last_filter(self):
+    def undo_last_filter(self) -> bool:
         """Revert last filter decision."""
-        # TODO implement undo stack
-        if self._lasttag != "":
-            self._tagfilter.pop(self._lasttag)
-            self._lasttag = ""
+        if self._tagstack and self.tag in self.filter:
+            self._tagstack.pop(-1)
+            return True
+        return False
 
-    def adjust_index(self, direction):
+    def adjust_index(self, direction: int) -> None:
         """Accumulate the current index with direction."""
         if len(self.tags) > 1:
             self.index = (self.index + direction) % len(self.tags)
 
-    def _tag_index(self, tag_name):
+    def _tag_index(self, tag_name: str) -> int:
         """Find tag name in filtered tag list to derive its index."""
         match = [
             index for index, tag in enumerate(self.tags) if tag == tag_name
         ]
         return match[0] if len(match) >= 0 else self.index
 
-    def tag_at(self, index):
+    def tag_at(self, index: int) -> str:
         """Tag at index in filtered tag list."""
         return self.tags[index] if 0 <= index < len(self.tags) else ""
 
-    def set_tag(self, tag_name):
+    def set_tag(self, tag_name: str) -> None:
         """Set the current index to the matching tag name."""
         self.index = self._tag_index(tag_name)
 
     @property
-    def tags(self):
-        """Return all tags derived from media directory."""
-        return [key for key in self._media_map if key not in self._tagfilter]
+    def filter(self) -> Set[str]:
+        """Return the current tag filter being applied."""
+        return {elem.tag for elem in self._filter + self._tagstack}
 
     @property
-    def tag(self):
+    def tags(self) -> List[str]:
+        """Return all tags derived from media directory."""
+        return [key for key in self._tag_map if key not in self.filter]
+
+    @property
+    def tag(self) -> str:
         """Return the current tag."""
         return self.tag_at(self.index)
 
     @property
-    def media_list(self):
-        """Return archives associated with current tag."""
-        return self._media_map[self.tag] if self.tag in self._media_map else {}
+    def value(self) -> List[str]:
+        """Return elements associated with current tag."""
+        return self._tag_map[self.tag] if self.tag in self._tag_map else []
 
-    def report_filter_state(self):
-        """Print a summary of the current tag filter state."""
-        print("Exit on:", self.tag)
-        print(
-            "Tag state:",
-            len(self._tagfilter),
-            "filtered,",
-            len(self.tags),
-            "remain",
+    @property
+    def values(self) -> Set[str]:
+        """Return all unique elements in map."""
+        return {elem for tag in self.tags for elem in self._tag_map[tag]}
+
+    @property
+    def tag_filter_state(self) -> str:
+        """Return a summary of the current tag filter state."""
+        return (
+            f"Current Tag: {self.tag},"
+            + f" Filter Count: {len(self.filter)},"
+            + f" Active Count: {len(self.tags)}"
         )
+
+    @classmethod
+    def load_state(cls, file_path: Path) -> FilterState:
+        """Load tag filter from file."""
+        if os.access(file_path, os.R_OK):
+            with open(file_path, mode="r", encoding="utf8") as file:
+                return FilterState(*json.load(file))
+        return FilterState()
+
+    def save_state(self, file_path: Path, media_path: Path) -> None:
+        """Save current tag filter to file."""
+        old_state = self.load_state(file_path)
+        old_state.tag_map[str(media_path)] = self._tag_map
+        with open(file_path, mode="w", encoding="utf8") as file:
+            json.dump(FilterState(old_state.tag_map, self._filter), file)
+
+
+def sample_collection(
+    collection: List[List[Any]], modulo: int = 4, count: int = 40
+) -> List[Any]:
+    """Organize several lists into flat list using interlaced groups."""
+    set_size = [len(set) for set in collection]
+    ordered_list = []
+    if sum(set_size) <= 0:
+        return []
+    set_index = [modulo] * len(collection)
+    for index in range(
+        min(
+            ceil(sum(set_size) / modulo),
+            ceil(count / modulo),
+        )
+    ):
+        if set_index[index % len(set_size)] < set_size[index % len(set_size)]:
+            ordered_list.extend(
+                collection[index % len(set_size)][
+                    set_index[index % len(set_size)]
+                    - modulo : set_index[index % len(set_size)]
+                ]
+            )
+        else:
+            ordered_list.extend(
+                collection[index % len(set_size)][
+                    set_index[index % len(set_size)]
+                    - modulo : set_size[index % len(set_size)]
+                ]
+            )
+        set_index[index % len(set_size)] += modulo
+    return ordered_list
 
 
 # =]

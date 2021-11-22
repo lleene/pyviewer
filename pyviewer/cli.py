@@ -1,6 +1,7 @@
 """Console script for pyviewer."""
-import argparse
+import os
 import sys
+import argparse
 from pathlib import Path
 
 from PySide2.QtQml import QQmlApplicationEngine
@@ -12,12 +13,10 @@ def start_viewer(media_dir):
     """Initialize the QML application and load media in the root_dir."""
     app = QApplication()
     engine = QQmlApplicationEngine()
-
     pyviewer = PyViewer()
     engine.rootContext().setContextProperty("viewer", pyviewer)
     engine.load("pyviewer/pyviewer.qml")
     pyviewer.load_file_map(media_dir)
-
     pyviewer.images_changed.emit()
     if not engine.rootObjects():
         sys.exit(-1)
@@ -52,7 +51,7 @@ def main():
         return 1
     parser = pyviewer_parser()
     setup = parser.parse_args(sys.argv[1:])
-    start_viewer(setup.media)
+    start_viewer(os.path.realpath(setup.media))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 import sys
 from PySide2.QtCore import QByteArray, QObject, Property, Signal, Slot
-from .imageloader import ImageLoader
+from .imageloader import ArchiveBrowser
 
 
 class PyViewer(QObject):
@@ -13,46 +13,44 @@ class PyViewer(QObject):
     def __init__(self, parent=None):
         """Initialize image loader backend and load defaults."""
         super().__init__(parent)
-        self.imageloader = ImageLoader()
-
-    def load_images(self):
-        """Prompt loader to extract new set of files and emit change."""
-        self.imageloader.file_list
-        self.images_changed.emit()
+        self.imageloader = None
 
     def load_file_map(self, media_path):
         """Load media path and refresh viewer."""
-        self.imageloader.load_media(
-            media_path, "/mnt/media/Media/booru_archive/data/original"
-        )
+        self.imageloader = ArchiveBrowser(media_path)
+        self.images_changed.emit()
 
     @Property(int)
-    def length_images(self):
+    def length_images(self) -> int:
         """Return number of available images."""
-        return self.imageloader.count
+        return self.imageloader.count if self.imageloader else 0
 
     @Property(str, notify=images_changed)
-    def file_name(self):
+    def file_name(self) -> str:
         """Return extracted image at index."""
-        return self.imageloader.tag
+        return self.imageloader.tag if self.imageloader else ""
 
     @Property(list, notify=images_changed)
     def images(self):
         """Return extracted image at index."""
-        return [
-            QByteArray(image).toBase64() for image in self.imageloader._images
-        ]
+        return (
+            [QByteArray(image).toBase64() for image in self.imageloader.images]
+            if self.imageloader
+            else []
+        )
 
     @Slot(int)
     def load_next_archive(self, direction):
         """Adjust tag index and refresh viewer."""
         self.imageloader.adjust_index(direction)
-        self.load_images()
+        del self.imageloader.images
+        self.images_changed.emit()
 
     @Slot(int)
     def set_max_image_count(self, count):
         """Set the maximum number of Images."""
-        self.imageloader.max_image_count = count
+        if self.imageloader:
+            self.imageloader.max_image_count = count
 
 
 # =]

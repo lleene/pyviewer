@@ -1,96 +1,79 @@
 """File system interface that manages and retrieves media."""
 
 import io
+import os
 import glob
 import threading
-
+import atexit
+from pathlib import Path
+from typing import List, Dict, AnyStr
+from functools import cached_property
 import psycopg2
 from PIL import Image
-from .util import ArchiveManager, TagManager
+from .util import Archive, TagManager, sample_collection
 
 
-class ImageLoader(TagManager, ArchiveManager):
+class ArchiveBrowser(TagManager):
     """Archive manager for loading and organizing images with tag filters."""
 
-    def __init__(self):
+    def __init__(self, media_dir: Path, state_file: Path = "pyviewer.state"):
         """Create empty media handler."""
-        TagManager.__init__(self)
-        ArchiveManager.__init__(self)
-        self._file_list = dict()
-        self.max_image_count = 40
-        self._worker = None
-
-    @property
-    def count(self):
-        """File count."""
-        return (
-            len(self._file_list[self.tag])
-            if self.tag and self.tag in self._file_list
-            else 0
+        state_data = TagManager.load_state(state_file)
+        if str(media_dir) not in state_data.tag_map:
+            state_data.tag_map[str(media_dir)] = self._load_tag_map(media_dir)
+        super().__init__(
+            tag_map=state_data.tag_map[str(media_dir)],
+            tag_filter=state_data.tag_filter,
+        )
+        atexit.register(
+            self.save_state, file_path=state_file, media_path=media_dir
         )
 
-    @property
-    def file_list(self):
-        """Query booru for media file list of current tag."""
-        if self._worker and self._worker.is_alive():
-            self._worker.join()
-        if self.tag in self._file_list and self._file_list[self.tag] != "":
-            file_list = self._file_list[self.tag]
-        else:
-            file_list = ""
-        self._worker = threading.Thread(target=self._update_buffer)
-        self._worker.start()
-        return file_list
+    @classmethod
+    def _load_tag_map(cls, media_dir: Path = None) -> Dict[str, List[str]]:
+        """Find archives and generate association map for each tag."""
+        meta_list = {}
+        for archive in glob.glob(os.path.join(media_dir, "*.zip")):
+            meta_data = Archive(archive).meta_file
+            for tag in "artist" in meta_data and meta_data["artist"] or []:
+                if tag in meta_list and archive not in meta_list[tag]:
+                    meta_list[tag].append(archive)
+                elif tag not in meta_list:
+                    meta_list[tag] = [archive]
+        return meta_list
 
-    def _generate_tag_map(self, media_object):
-        # TODO allow any tags to be matched
-        """Parse archives to derive a tag list with associated archives."""
-        meta_list = []
-        for archive in glob.glob(media_object + "/*.zip"):
-            meta_data = self.fetch_meta_file(archive)
-            meta_data.update({"path": archive})
-            meta_list.append(meta_data)
-        self._media_map = {
-            tag: [
-                match["path"]
-                for match in meta_list
-                if "path" in match
-                and "artist" in match
-                and match["artist"][0] == tag
-            ]
-            for tag in {
-                entry["artist"][0] for entry in meta_list if "artist" in entry
-            }
-        }
-
-    @property
-    def _images(self):
+    @cached_property
+    def images(self) -> List[AnyStr]:
         """Extract archives associated with active tag."""
-        return self.order_images(
+        return sample_collection(
             [
-                self.load_archive(media, self.max_image_count)
-                for index, media in enumerate(self.media_list)
+                Archive(archive_path).get_images()
+                for index, archive_path in enumerate(self.value)
                 if index < 4
             ]
         )
 
-    def _check_archive(self, archive_path):
+    @classmethod
+    def _check_archive(cls, archive_path: Path) -> None:
         """Validate all images in archive."""
-        for image in self.load_archive(archive_path):
+        for image in Archive(archive_path).get_images():
             Image.open(io.BytesIO(image)).verify()
 
-    def check_media(self):
+    def check_media(self) -> None:
         """Check every archive in media directory for corrupt images."""
-        for index, _ in enumerate(self.tags):
-            self.index = index
-            for archive_path in self.media_list:
-                try:
-                    self._check_archive(archive_path)
-                except Image.UnidentifiedImageError as error:
-                    print("Cannot open {}: {}".format(archive_path, error))
+        for archive_path in self.values:
+            try:
+                self._check_archive(archive_path)
+            except Image.UnidentifiedImageError as error:
+                print("Cannot open {}: {}".format(archive_path, error))
+
+    @property
+    def count(self) -> int:
+        """File count."""
+        return len(self.images)
 
 
-class BooruLoader(TagManager):
+class BooruBrowser(TagManager):
     """Booru manager for loading and organizing images with tag filters."""
 
     def __init__(self, host="127.0.0.1"):
@@ -217,5 +200,15 @@ class BooruLoader(TagManager):
         self._worker.start()
         return file_list
 
+
+# =]
+
+# =]
+# =]
+
+# =]
+# =]
+
+# =]
 
 # =]
