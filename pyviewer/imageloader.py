@@ -3,14 +3,14 @@
 import io
 import os
 import glob
-import threading
 import atexit
+from ipaddress import ip_address
 from pathlib import Path
 from typing import List, Dict, AnyStr
 from functools import cached_property
 import psycopg2
 from PIL import Image
-from .util import Archive, TagManager, sample_collection
+from .util import Archive, TagManager, sample_collection, TagInfo
 
 
 class ArchiveBrowser(TagManager):
@@ -20,7 +20,7 @@ class ArchiveBrowser(TagManager):
         """Create empty media handler."""
         state_data = TagManager.load_state(state_file)
         if str(media_dir) not in state_data.tag_map:
-            state_data.tag_map[str(media_dir)] = self._load_tag_map(media_dir)
+            state_data.tag_map[str(media_dir)] = self.load_tag_map(media_dir)
         super().__init__(
             tag_map=state_data.tag_map[str(media_dir)],
             tag_filter=state_data.tag_filter,
@@ -30,7 +30,7 @@ class ArchiveBrowser(TagManager):
         )
 
     @classmethod
-    def _load_tag_map(cls, media_dir: Path = None) -> Dict[str, List[str]]:
+    def load_tag_map(cls, media_dir: Path = None) -> Dict[str, List[str]]:
         """Find archives and generate association map for each tag."""
         meta_list = {}
         for archive in glob.glob(os.path.join(media_dir, "*.zip")):
@@ -76,44 +76,45 @@ class ArchiveBrowser(TagManager):
 class BooruBrowser(TagManager):
     """Booru manager for loading and organizing images with tag filters."""
 
-    def __init__(self, host="127.0.0.1"):
+    def __init__(
+        self,
+        media_host: ip_address = ip_address("127.0.0.1"),
+        state_file: Path = "pyviewer.state",
+    ):
         """Connect to PG database on creation."""
-        self._data_root = ""
-        self._file_list = dict()
-        self.max_image_count = 40
-        self._worker = None
-        super().__init__()
+        self._data_root = "/mnt/media/Media/booru_archive/data/original"
         self.pgdb = psycopg2.connect(
-            dbname="danbooru2", user="lbl11", password="", host=host
+            dbname="danbooru2", user="lbl11", password="", host=media_host
+        )
+        state_data = TagManager.load_state(state_file)
+        if str(media_host) not in state_data.tag_map:
+            state_data.tag_map[str(media_host)] = self.load_tag_map()
+        super().__init__(
+            tag_map=state_data.tag_map[str(media_host)],
+            tag_filter=state_data.tag_filter,
         )
 
     @property
-    def count(self):
+    def count(self) -> int:
         """File count."""
-        return (
-            len(self._file_list[self.tag])
-            if self.tag and self.tag in self._file_list
-            else 0
-        )
+        return len(self.images)
 
     @classmethod
-    def load_file(cls, path):
-        """Read file to memory."""
-        with open(path, "rb") as file:
+    def load_image(cls, file_path: Path) -> AnyStr:
+        """Load binary image data."""
+        with open(file_path, "rb") as file:
             return file.read()
 
-    @property
-    def _images(self):
-        """Read current index to memory."""
-        return [self.load_file(image) for image in self.file_list]
+    @cached_property
+    def images(self) -> List[AnyStr]:
+        """Extract archives associated with active tag."""
+        return [
+            self.load_image(file_path)
+            for index, file_path in enumerate(self.files_at_tag(self.tag))
+            if index < 40
+        ]
 
-    def load_media(self, run_dir, media_object):
-        """Config root dir and load media map."""
-        self._data_root = media_object
-        super().load_media(run_dir, media_object)
-        self._update_buffer()
-
-    def _query_tag(self, tag):
+    def _query_tag(self, tag: str) -> TagInfo:
         cursor = self.pgdb.cursor()
         cursor.execute(
             "SELECT * FROM tags WHERE name @@ $$'{}'$$".format(tag)
@@ -122,38 +123,33 @@ class BooruBrowser(TagManager):
         entry = cursor.fetchone()
         cursor.close()
         return (
-            {"id": entry[0], "count": entry[2]}
+            TagInfo(entry[0], entry[2])
             if entry and entry[1] == tag
-            else {}
+            else TagInfo()
         )
 
-    def _get_selected_tags(self, tags):
+    def _get_selected_tags(self, tags: List[str]) -> Dict[str, TagInfo]:
         return {elem: self._query_tag(elem) for elem in tags}
 
-    def _generate_tag_map(self, media_object):
+    def load_tag_map(self) -> Dict[str, TagInfo]:
         """Query booru for media tags."""
-        self._media_map = self._get_selected_tags(["doppel", "mikoyan"])
-        return
+        return self._get_selected_tags(
+            ["mikoyan", "asanagi", "honjou_raita", "uno_makoto"]
+        )
         cursor = self.pgdb.cursor()
         cursor.execute(
-            "SELECT * FROM tags WHERE category = 1 AND post_count >= 10 ;"
+            "SELECT * FROM tags WHERE category = 1 AND post_count >= 25 ;"
         )
-        self._media_map = {
-            artist[1]: {"id": artist[0], "count": artist[2]}
+        tag_map = {
+            artist[1]: TagInfo(artist[0], artist[2])
             for artist in cursor.fetchall()
         }
         cursor.close()
+        return tag_map
 
-    def _update_buffer(self):
-        """Update the file list for list of tags."""
-        tag_buffer = [
-            self.tag_at(index)
-            for index in list(range(self.index - 2, self.index + 3))
-        ]
-        for tag in set(tag_buffer) - set(self._file_list.keys()):
-            self._file_list.update({tag: self.files_at_tag(tag)})
-
-    def files_at_tag(self, tag):
+    def files_at_tag(
+        self, tag: str, count: int = 40, offset: int = 0
+    ) -> List[Path]:
         # TODO use named tuple when fetching from sql
         # from collections import namedtuple
         # derive from table index names
@@ -164,11 +160,9 @@ class BooruBrowser(TagManager):
             cursor = self.pgdb.cursor()
             cursor.execute(
                 "SELECT * FROM posts WHERE tag_index "
-                + "@@ $$'{}'$$::tsquery ".format(tag)
+                + f"@@ $$'{tag}'$$::tsquery "
                 + "AND 'jpg png'::tsvector @@ to_tsquery(file_ext)"
-                + "AND file_size < 6400000 LIMIT {};".format(
-                    self.max_image_count
-                )
+                + f"AND file_size < 6400000 LIMIT {count} OFFSET {offset};"
             )
             file_list = [
                 "{}/{}/{}/{}.{}".format(
@@ -183,32 +177,5 @@ class BooruBrowser(TagManager):
             cursor.close()
         return file_list
 
-    def files_at_index(self, index):
-        """Query media at target index."""
-        return self.files_at_tag(self.tag_at(index))
-
-    @property
-    def file_list(self):
-        """Query booru for media file list of current tag."""
-        if self._worker and self._worker.is_alive():
-            self._worker.join()
-        if self.tag in self._file_list and self._file_list[self.tag] != "":
-            file_list = self._file_list[self.tag]
-        else:
-            file_list = ""
-        self._worker = threading.Thread(target=self._update_buffer)
-        self._worker.start()
-        return file_list
-
-
-# =]
-
-# =]
-# =]
-
-# =]
-# =]
-
-# =]
 
 # =]

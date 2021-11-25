@@ -59,6 +59,13 @@ class FilterState(NamedTuple):
     tag_filter: List[FilterEntry] = []
 
 
+class TagInfo(NamedTuple):
+    """Typed container presenting booru tag information."""
+
+    id: int = None
+    count: int = 0
+
+
 class TagManager:
     """Utility to manage a collection indexed and filtered by keys."""
 
@@ -190,4 +197,5 @@ def sample_collection(
     return ordered_list
 
 
+# =]
 # =]

@@ -9,8 +9,10 @@ ApplicationWindow {
   visible: true
   visibility: "FullScreen"
   color: "black"
-  property var layout: [2,1]
-  property int max_image_count: 50
+  readonly property int panel_count: 4
+  readonly property var layout: [2,1]
+  readonly property int tile_count: main.layout[0] * main.layout[1]
+  property int index: 0
   width: 1600
   height: 1000
   Rectangle {
@@ -26,19 +28,35 @@ ApplicationWindow {
     Keys.onUpPressed: {
       viewer.load_next_archive(1);
       info.currentIndex = 0
+      main.index = 0
+      info.update_info(main.index,main.tile_count*2,0)
     }
     Keys.onDownPressed: {
       viewer.load_next_archive(-1);
       info.currentIndex = 0
+      main.index = 0
+      info.update_info(main.index,main.tile_count*2,0)
     }
-    Keys.onLeftPressed: info.currentIndex = info.currentIndex <= 0 ? info.contentChildren.length - 1 : info.currentIndex - 1
-    Keys.onRightPressed: info.currentIndex = info.currentIndex >= info.contentChildren.length - 1 ? 0 : info.currentIndex + 1
+    Keys.onLeftPressed: {
+      if ( main.index > 0 ) { // avoid negative index on main
+        if ( main.index > main.tile_count ) info.update_info(main.index-2*main.tile_count, main.tile_count, info.currentIndex-2)
+        info.currentIndex = info.currentIndex <= 0 ? (main.panel_count - 1) : info.currentIndex - 1
+        main.index = main.index - main.tile_count
+      }
+    }
+    Keys.onRightPressed: {
+      info.update_info(main.index+2*main.tile_count, main.tile_count, info.currentIndex+2)
+      info.currentIndex = info.currentIndex >= (main.panel_count - 1) ? 0 : info.currentIndex + 1
+      main.index = main.index + main.tile_count
+    }
     Text {
       id: info_text
       anchors.centerIn: parent
       text: ""
       font.pixelSize: 16
       color: "white"
+      style: Text.Outline;
+      styleColor: "black"
       smooth: true
     }
   }
@@ -47,37 +65,38 @@ ApplicationWindow {
     currentIndex: 0
     anchors.fill: parent
     Repeater {
-      model: Math.ceil(main.max_image_count/(main.layout[0] * main.layout[1]))
+      model: main.panel_count
       Grid {
         rowSpacing: 2
         columnSpacing: 2
         columns: main.layout[0]
         rows: main.layout[1]
         Repeater {
-          model: main.layout[0] *  main.layout[1]
+          model: main.tile_count
           Item {
             width: info.width / main.layout[0]
             height: info.height / main.layout[1]
             Image {
               anchors.fill: parent
-              fillMode: Image.PreserveAspectCrop
+              fillMode: Image.PreserveAspectFit
             }
           }
         }
       }
     }
-  }
-  Component.onCompleted: {
-    function update_info() {
-      for (var i = 0; i < main.max_image_count ; i++)  {
-          var panel = Math.floor(i /(main.layout[0] * main.layout[1]))
-          var tile = i % (main.layout[0] * main.layout[1])
-          if ( i < viewer.images.length ) info.contentChildren[panel].children[tile].children[0].source = "data:image;base64," + viewer.images[i]
-          else info.contentChildren[panel].children[tile].children[0].source = ""
+    function update_info(index_start, image_count, panel_start) {
+    var j = 0;
+    for (var panel = (main.panel_count + panel_start) % main.panel_count; j < image_count; ) {
+      for (var tile = 0; tile < main.tile_count; tile++) {
+        viewer.index(j+index_start)
+        var data = viewer.image
+        data == "" ? info.contentChildren[panel].children[tile].children[0].source = "" : info.contentChildren[panel].children[tile].children[0].source = "data:image;base64," + data
+        j++
       }
-      info_text.text = viewer.file_name
+      panel = (panel + 1) % main.panel_count
     }
-    viewer.images_changed.connect(update_info)
-    viewer.set_max_image_count(main.max_image_count)
+    info_text.text = viewer.file_name
+    }
   }
+  Component.onCompleted: info.update_info(main.index,main.tile_count*2,0)
 }

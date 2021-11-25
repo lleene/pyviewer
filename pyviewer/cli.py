@@ -14,10 +14,9 @@ def start_viewer(media_dir):
     app = QApplication()
     engine = QQmlApplicationEngine()
     pyviewer = PyViewer()
+    pyviewer.load_file_map(media_dir)
     engine.rootContext().setContextProperty("viewer", pyviewer)
     engine.load("pyviewer/pyviewer.qml")
-    pyviewer.load_file_map(media_dir)
-    pyviewer.images_changed.emit()
     if not engine.rootObjects():
         sys.exit(-1)
     ret = app.exec_()
