@@ -4,6 +4,7 @@ import io
 import os
 import glob
 import atexit
+import hashlib
 from ipaddress import ip_address
 from pathlib import Path
 from typing import List, Dict, AnyStr
@@ -97,7 +98,12 @@ class BooruBrowser(TagManager):
     @property
     def count(self) -> int:
         """File count."""
-        return len(self.images)
+        return len(self.files)
+
+    def hash(self, image_index: int = 0) -> str:
+        """Load binary image data."""
+        with open(self.files[image_index % self.count], "rb") as file:
+            return hashlib.md5(file.read()).hexdigest()
 
     @classmethod
     def load_image(cls, file_path: Path) -> AnyStr:
@@ -106,13 +112,13 @@ class BooruBrowser(TagManager):
             return file.read()
 
     @cached_property
-    def images(self) -> List[AnyStr]:
+    def files(self) -> List[Path]:
         """Extract archives associated with active tag."""
-        return [
-            self.load_image(file_path)
-            for index, file_path in enumerate(self.files_at_tag(self.tag))
-            if index < 40
-        ]
+        return self.files_at_tag(self.tag, self.value.count)
+
+    def image(self, image_index: int = 0) -> AnyStr:
+        """Extract archives associated with active tag."""
+        return self.load_image(self.files[image_index % self.count])
 
     def _query_tag(self, tag: str) -> TagInfo:
         cursor = self.pgdb.cursor()
@@ -134,7 +140,17 @@ class BooruBrowser(TagManager):
     def load_tag_map(self) -> Dict[str, TagInfo]:
         """Query booru for media tags."""
         return self._get_selected_tags(
-            ["mikoyan", "asanagi", "honjou_raita", "uno_makoto"]
+            [
+                "mikoyan",
+                "asanagi",
+                "honjou_raita",
+                "uno_makoto",
+                "krekk0v",
+                "tomoyuki_kotani",
+                "ikezaki_misa",
+                "satou_shouji",
+                "inazuma",
+            ]
         )
         cursor = self.pgdb.cursor()
         cursor.execute(

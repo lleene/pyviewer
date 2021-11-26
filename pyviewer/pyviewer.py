@@ -27,11 +27,16 @@ class PyViewer(QObject):
         """Return extracted image at index."""
         return self.imageloader.tag if self.imageloader else ""
 
+    @Slot(int)
+    def hash(self, image_index: int = 0):
+        """Print image hash at index."""
+        print(self.imageloader.hash(image_index))
+
     @Property(QByteArray)
     def image(self):
         """Return an image at index."""
         return (
-            QByteArray(self.imageloader.images[self._image_index]).toBase64()
+            QByteArray(self.imageloader.image(self._image_index)).toBase64()
             if self.imageloader
             else QByteArray().toBase64()
         )
@@ -45,7 +50,7 @@ class PyViewer(QObject):
     def load_next_archive(self, direction):
         """Adjust tag index and refresh viewer."""
         self.imageloader.adjust_index(direction)
-        del self.imageloader.images
+        del self.imageloader.files
 
     @Slot(int)
     def set_max_image_count(self, count):
