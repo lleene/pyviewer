@@ -2,7 +2,6 @@
 import os
 import sys
 from pathlib import Path
-from ipaddress import ip_address
 from argparse import ArgumentParser
 from tempfile import NamedTemporaryFile
 
@@ -22,6 +21,7 @@ def pyviewer_parser() -> ArgumentParser:
     source_selection.add_argument(
         "-a",
         "--archive",
+        dest="archive",
         type=Path,
         metavar="PATH",
         help="Browse collection of compressed archives."
@@ -31,7 +31,8 @@ def pyviewer_parser() -> ArgumentParser:
     source_selection.add_argument(
         "-b",
         "--booru",
-        type=ip_address,
+        dest="booru",
+        type=str,
         metavar="HOST",
         help="Browse booru host with tagged image database."
         + " Must specify a valid host address.",
@@ -41,6 +42,7 @@ def pyviewer_parser() -> ArgumentParser:
         "--tags",
         "-t",
         type=str,
+        dest="tags",
         nargs="+",
         metavar="TAGS",
         help="Browse selected tags",
@@ -50,6 +52,7 @@ def pyviewer_parser() -> ArgumentParser:
         "--state",
         "-s",
         nargs="?",
+        dest="state",
         type=Path,
         metavar="SAVE",
         help="Save viewer state to file",
@@ -58,7 +61,7 @@ def pyviewer_parser() -> ArgumentParser:
     return parser
 
 
-def start_viewer(setup: ArgumentParser) -> int:
+def start_viewer(setup) -> int:
     """Initialize the QML application and load media in the root_dir."""
     app = QApplication()
     engine = QQmlApplicationEngine()
