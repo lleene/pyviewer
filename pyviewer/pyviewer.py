@@ -1,6 +1,7 @@
 """Main QObject with qml bindings that prompt excusion from user interface."""
 
-from PySide2.QtCore import QByteArray, QObject, Property, Signal, Slot
+from typing import Union
+from PySide6.QtCore import QByteArray, QObject, Property, Signal, Slot
 from .imageloader import ArchiveBrowser, BooruBrowser
 
 
@@ -13,9 +14,11 @@ class PyViewer(QObject):
         self.imageloader = None
         self._image_index = 0
 
-    def load_file_map(self, media_path):
+    def load_media(
+        self, imageloader: Union[BooruBrowser, ArchiveBrowser]
+    ) -> None:
         """Load media path and refresh viewer."""
-        self.imageloader = BooruBrowser()
+        self.imageloader = imageloader
 
     @Property(int)
     def length_images(self) -> int:
@@ -30,10 +33,13 @@ class PyViewer(QObject):
     @Slot(int)
     def hash(self, image_index: int = 0):
         """Print image hash at index."""
-        print(self.imageloader.hash(image_index))
+        print(
+            f"{self.file_name}: {self.imageloader.path(image_index)}"
+            + f" - {self.imageloader.hash(image_index)}"
+        )
 
     @Property(QByteArray)
-    def image(self):
+    def image(self) -> QByteArray:
         """Return an image at index."""
         return (
             QByteArray(self.imageloader.image(self._image_index)).toBase64()
@@ -42,21 +48,15 @@ class PyViewer(QObject):
         )
 
     @Slot(int)
-    def index(self, image_index: int):
-        """Adjust tag index and refresh viewer."""
+    def index(self, image_index: int) -> None:
+        """Adjust image index."""
         self._image_index = image_index
 
     @Slot(int)
-    def load_next_archive(self, direction):
-        """Adjust tag index and refresh viewer."""
+    def load_next_archive(self, direction: int) -> None:
+        """Adjust tag index and clear image cache."""
         self.imageloader.adjust_index(direction)
         del self.imageloader.files
-
-    @Slot(int)
-    def set_max_image_count(self, count):
-        """Set the maximum number of Images."""
-        if self.imageloader:
-            self.imageloader.max_image_count = count
 
 
 # =]

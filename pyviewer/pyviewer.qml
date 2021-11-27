@@ -1,6 +1,6 @@
-import QtQuick.Controls 2.13
-import QtQuick.Layouts 1.15
-import QtQuick 2.15
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick
 
 ApplicationWindow {
   id: main
@@ -10,63 +10,10 @@ ApplicationWindow {
   visibility: "FullScreen"
   color: "black"
   readonly property int panel_count: 4
-  readonly property var layout: [2,1]
-  readonly property int tile_count: main.layout[0] * main.layout[1]
+  property var layout: [2,1]
+  property int tile_count: main.layout[0] * main.layout[1]
   property int index: 0
-  Rectangle {
-    id: handler
-    anchors.bottom: main.bottom
-    anchors.left: main.left
-    width: main.width/4
-    height: info.height/8
-    color: "black";
-    focus: true
-    Keys.enabled: true
-    Keys.onEscapePressed: Qt.quit()
-    Keys.onUpPressed: {
-      viewer.load_next_archive(1);
-      info.currentIndex = 0
-      main.index = 0
-      info.update_info(main.index,main.tile_count*2,0)
-    }
-    Keys.onDownPressed: {
-      viewer.load_next_archive(-1);
-      info.currentIndex = 0
-      main.index = 0
-      info.update_info(main.index,main.tile_count*2,0)
-    }
-    Keys.onLeftPressed: {
-      if ( main.index > 0 ) { // avoid negative index on main
-        if ( main.index > main.tile_count ) info.update_info(main.index-2*main.tile_count, main.tile_count, info.currentIndex-2)
-        info.decrementCurrentIndex()
-        main.index = main.index - main.tile_count
-      }
-    }
-    Keys.onRightPressed: {
-      info.update_info(main.index+2*main.tile_count, main.tile_count, info.currentIndex+2)
-      info.incrementCurrentIndex()
-      main.index = main.index + main.tile_count
-    }
-    Keys.onDigit1Pressed:{
-        viewer.hash(main.index)
-    }
-    Keys.onDigit2Pressed:{
-        viewer.hash(main.index+1)
-    }
-    Text {
-      id: info_text
-      anchors.left: parent.left
-      anchors.top: parent.top
-      anchors.leftMargin: 10;
-      anchors.topMargin: 10;
-      text: ""
-      font.pixelSize: 24
-      color: "white"
-      style: Text.Outline;
-      styleColor: "black"
-      smooth: true
-    }
-  }
+  // Adjustable sub-container for aggregating images on a grid
   Component{
       id: path_delegate
       Grid {
@@ -87,6 +34,7 @@ ApplicationWindow {
         }
       }
   }
+  // Main container for showing and transitioning through images
   PathView {
     id: info
     anchors.fill: parent
@@ -103,17 +51,103 @@ ApplicationWindow {
         }
     function update_info(index_start, image_count, panel_start) {
     var j = 0;
-    for (var panel = (main.panel_count + panel_start) % main.panel_count; j < image_count; ) {
+    for (var panel = (main.panel_count + panel_start + 1) % main.panel_count; j < image_count; ) {
+      info.children[1+panel].columns = main.layout[0]
+      info.children[1+panel].rows = main.layout[1]
       for (var tile = 0; tile < main.tile_count; tile++) {
         viewer.index(j+index_start)
         var data = viewer.image
-        if (data == "" ) info.children[1+panel].children[tile].children[0].source = ""
+        if (data == "" || j+index_start < 0) info.children[1+panel].children[tile].children[0].source = ""
         else info.children[1+panel].children[tile].children[0].source = "data:image;base64," + data
         j++
       }
       panel = (panel + 1) % main.panel_count
     }
     info_text.text = viewer.file_name
+    }
+  }
+  Rectangle {
+    id: handler
+    focus: true
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.leftMargin: 10;
+    anchors.topMargin: 10;
+    Keys.enabled: true
+    Keys.onEscapePressed: Qt.quit()
+    // Default Naviation
+    Keys.onUpPressed: {
+      viewer.load_next_archive(1);
+      info.currentIndex = 0
+      main.index = 0
+      info.update_info(0,main.tile_count*3,0)
+    }
+    Keys.onDownPressed: {
+      viewer.load_next_archive(-1);
+      info.currentIndex = 0
+      main.index = 0
+      info.update_info(0,main.tile_count*3,0)
+    }
+    Keys.onLeftPressed: {
+      if ( main.index > 0 ) { // avoid negative index on main
+        if ( main.index > main.tile_count ) info.update_info(main.index-2*main.tile_count, main.tile_count, info.currentIndex-2)
+        info.decrementCurrentIndex()
+        main.index = main.index - main.tile_count
+      }
+    }
+    Keys.onRightPressed: {
+      info.update_info(main.index+2*main.tile_count, main.tile_count, info.currentIndex+2)
+      info.incrementCurrentIndex()
+      main.index = main.index + main.tile_count
+    }
+    // Filter controls
+    Keys.onTabPressed: {
+      viewer.update_tag_filter(false)
+      info.currentIndex = 0
+      main.index = 0
+      info.update_info(0,main.tile_count*3,0)
+    }
+    Keys.onSpacePressed: {
+      viewer.update_tag_filter(true)
+      info.currentIndex = 0
+      main.index = 0
+      info.update_info(0,main.tile_count*3,0)
+    }
+    // Fetch image data relative to index
+    Keys.onDigit1Pressed:{viewer.hash(main.index+0)}
+    Keys.onDigit2Pressed:{viewer.hash(main.index+1)}
+    Keys.onDigit3Pressed:{viewer.hash(main.index+2)}
+    Keys.onDigit4Pressed:{viewer.hash(main.index+3)}
+    Keys.onDigit5Pressed:{viewer.hash(main.index+4)}
+    Keys.onDigit6Pressed:{viewer.hash(main.index+5)}
+    Keys.onDigit7Pressed:{viewer.hash(main.index+6)}
+    Keys.onDigit8Pressed:{viewer.hash(main.index+7)}
+    // Zoom functionality
+    Keys.onDigit9Pressed: {
+        if(main.layout[0] * main.layout[1] > 1){
+            if (main.layout[0] / main.layout[1] >= 2) main.layout[0] = Math.max(main.layout[0] >> 1,1)
+            else main.layout[1] = Math.max(main.layout[1] >> 1, 1)
+        }
+        main.tile_count = main.layout[0] * main.layout[1]
+        info.update_info(main.index - main.tile_count, main.tile_count*3, info.currentIndex - 1)
+    }
+    Keys.onDigit0Pressed: {
+        if(main.layout[0] * main.layout[1] < 8){
+            if ((2 * main.layout[0] / main.layout[1]) > 2) main.layout[1] = 2 * main.layout[1]
+            else main.layout[0] = 2 * main.layout[0]
+        }
+        main.tile_count = main.layout[0] * main.layout[1]
+        info.update_info(main.index - main.tile_count, main.tile_count*3, info.currentIndex - 1)
+    }
+    // Info text showing current tag
+    Text {
+      id: info_text
+      text: ""
+      font.pixelSize: 24
+      color: "white"
+      style: Text.Outline;
+      styleColor: "black"
+      smooth: true
     }
   }
   Component.onCompleted: info.update_info(main.index,main.tile_count*2,0)
