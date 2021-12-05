@@ -5,6 +5,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from tempfile import NamedTemporaryFile
 
+from PySide6.QtCore import QUrl
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
 from pyviewer import PyViewer, __version__, ArchiveBrowser, BooruBrowser
@@ -63,8 +64,6 @@ def pyviewer_parser() -> ArgumentParser:
 
 def start_viewer(setup) -> int:
     """Initialize the QML application and load media in the root_dir."""
-    app = QApplication()
-    engine = QQmlApplicationEngine()
     pyviewer = PyViewer()
     if setup.archive:
         pyviewer.load_media(
@@ -78,8 +77,14 @@ def start_viewer(setup) -> int:
         pyviewer.load_media(
             BooruBrowser(setup.booru, state_file=setup.state, tags=setup.tags)
         )
+    if not pyviewer.imageloader.count:
+        print("No media found, exiting...")
+        return 1
+    app = QApplication()
+    engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("viewer", pyviewer)
-    engine.load("pyviewer/pyviewer.qml")
+    qml_file = os.path.join(os.path.dirname(__file__), "pyviewer.qml")
+    engine.load(QUrl(qml_file))
     if not engine.rootObjects():
         return 1
     return app.exec()
@@ -87,16 +92,8 @@ def start_viewer(setup) -> int:
 
 def main() -> int:
     """Console script for pyviewer."""
-    try:
-        sys.argv = [
-            unicode(arg.decode(sys.stdin.encoding)) for arg in sys.argv
-        ]
-    except (NameError, TypeError):
-        pass
-    except UnicodeDecodeError:
-        return 1
     parser = pyviewer_parser()
-    setup = parser.parse_args(sys.argv[1:])
+    setup = parser.parse_args()
     return start_viewer(setup)
 
 

@@ -19,11 +19,12 @@ class Archive(ZipFile):
     @property
     def meta_file(self) -> dict:
         """Fetch the meta file from archive."""
-        return (
-            json.loads(self.load_file("metadata.json"))
-            if "metadata.json" in [elem.filename for elem in self.infolist()]
-            else {}
-        )
+        meta = [
+            json.loads(self.load_file(elem.filename))
+            for elem in self.infolist()
+            if elem.filename[-13:] == "metadata.json"
+        ]
+        return meta[0] if meta else {}
 
     @property
     def image_files(self) -> List[str]:
@@ -70,27 +71,26 @@ class TagManager:
         """Initialize with empty struct since loading is expensive."""
         self.index = 0
         self._tag_map = tag_map
-        self._filter = tag_filter
+        self._filter = [FilterEntry(*elem) for elem in tag_filter]
         self._tagstack: List[FilterEntry] = []
+        self._tag_buffer = self.tags
 
-    def update_tag_filter(self, filter_bool: bool) -> bool:
+    def update_tag_filter(self, filter_bool: bool) -> None:
         """Update tag filter with filter decision."""
-        if self.tag in self.filter:
-            return False
-        self._tagstack.append(FilterEntry(self.tag, filter_bool))
-        return True
+        if self._tag_map:
+            self._tagstack.append(FilterEntry(self.tag, filter_bool))
+            self._tag_buffer.remove(self.tag)
 
-    def undo_last_filter(self) -> bool:
+    def undo_last_filter(self) -> None:
         """Revert last filter decision."""
-        if self._tagstack and self.tag in self.filter:
-            self._tagstack.pop(-1)
-            return True
-        return False
+        if len(self._tagstack) > 0:
+            entry = self._tagstack.pop(-1)
+            self._tag_buffer.insert(self.index, entry.tag)
 
     def adjust_index(self, direction: int) -> None:
         """Accumulate the current index with direction."""
-        if len(self.tags) > 1:
-            self.index = (self.index + direction) % len(self.tags)
+        if self._tag_map:
+            self.index = self.index + direction
 
     def _tag_index(self, tag_name: str) -> int:
         """Find tag name in filtered tag list to derive its index."""
@@ -101,7 +101,11 @@ class TagManager:
 
     def tag_at(self, index: int) -> str:
         """Tag at index in filtered tag list."""
-        return self.tags[index] if 0 <= index < len(self.tags) else ""
+        return (
+            self._tag_buffer[index % len(self._tag_buffer)]
+            if self._tag_buffer
+            else ""
+        )
 
     def set_tag(self, tag_name: str) -> None:
         """Set the current index to the matching tag name."""
@@ -115,7 +119,10 @@ class TagManager:
     @property
     def tags(self) -> List[str]:
         """Return all tags derived from media directory."""
-        return [key for key in self._tag_map if key not in self.filter]
+        self._tag_buffer = [
+            key for key in self._tag_map if key not in self.filter
+        ]
+        return self._tag_buffer
 
     @property
     def tag(self) -> str:
@@ -130,15 +137,16 @@ class TagManager:
     @property
     def values(self) -> Set[str]:
         """Return all unique elements in map."""
-        return {elem for tag in self.tags for elem in self._tag_map[tag]}
+        return {
+            elem for tag in self._tag_buffer for elem in self._tag_map[tag]
+        }
 
     @property
     def tag_filter_state(self) -> str:
         """Return a summary of the current tag filter state."""
         return (
-            f"Current Tag: {self.tag},"
-            + f" Filter Count: {len(self.filter)},"
-            + f" Active Count: {len(self.tags)}"
+            f"Tag: {self.tag} / {len(self._tag_buffer)}"
+            + f"  Filter: {len(self.filter)}"
         )
 
     @classmethod
@@ -151,10 +159,14 @@ class TagManager:
 
     def save_state(self, file_path: Path, media_path: Path) -> None:
         """Save current tag filter to file."""
+        print(self.tag_filter_state)
         old_state = self.load_state(file_path)
         old_state.tag_map[str(media_path)] = self._tag_map
         with open(file_path, mode="w", encoding="utf8") as file:
-            json.dump(FilterState(old_state.tag_map, self._filter), file)
+            json.dump(
+                FilterState(old_state.tag_map, self._filter + self._tagstack),
+                file,
+            )
 
 
 def sample_collection(
@@ -191,4 +203,7 @@ def sample_collection(
 
 
 # =]
+
+# =]
+
 # =]

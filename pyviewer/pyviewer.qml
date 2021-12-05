@@ -10,7 +10,7 @@ ApplicationWindow {
   visibility: "FullScreen"
   color: "black"
   readonly property int panel_count: 4
-  property var layout: [2,1]
+  property var layout: [4,2]
   property int tile_count: main.layout[0] * main.layout[1]
   property int index: 0
   // Adjustable sub-container for aggregating images on a grid
@@ -29,6 +29,7 @@ ApplicationWindow {
             Image {
               anchors.fill: parent
               fillMode: Image.PreserveAspectFit
+              mipmap: true
             }
           }
         }
@@ -55,10 +56,13 @@ ApplicationWindow {
       info.children[1+panel].columns = main.layout[0]
       info.children[1+panel].rows = main.layout[1]
       for (var tile = 0; tile < main.tile_count; tile++) {
-        viewer.index(j+index_start)
-        var data = viewer.image
-        if (data == "" || j+index_start < 0) info.children[1+panel].children[tile].children[0].source = ""
-        else info.children[1+panel].children[tile].children[0].source = "data:image;base64," + data
+        var data = ""
+        if(j+index_start >= 0) {
+          viewer.index(j+index_start)
+          data = viewer.image
+        }
+        if (data != "") info.children[1+panel].children[tile].children[0].source = "data:image;base64," + data
+        else info.children[1+panel].children[tile].children[0].source = ""
         j++
       }
       panel = (panel + 1) % main.panel_count
@@ -70,9 +74,8 @@ ApplicationWindow {
     id: handler
     focus: true
     anchors.left: parent.left
-    anchors.top: parent.top
-    anchors.leftMargin: 10;
-    anchors.topMargin: 10;
+    height: parent.height;
+    anchors.leftMargin: 20;
     Keys.enabled: true
     Keys.onEscapePressed: Qt.quit()
     // Default Naviation
@@ -113,6 +116,12 @@ ApplicationWindow {
       main.index = 0
       info.update_info(0,main.tile_count*3,0)
     }
+    Keys.onDeletePressed: {
+      viewer.undo_last_filter()
+      info.currentIndex = 0
+      main.index = 0
+      info.update_info(0,main.tile_count*3,0)
+    }
     // Fetch image data relative to index
     Keys.onDigit1Pressed:{viewer.hash(main.index+0)}
     Keys.onDigit2Pressed:{viewer.hash(main.index+1)}
@@ -132,7 +141,7 @@ ApplicationWindow {
         info.update_info(main.index - main.tile_count, main.tile_count*3, info.currentIndex - 1)
     }
     Keys.onDigit0Pressed: {
-        if(main.layout[0] * main.layout[1] < 8){
+        if(main.layout[0] * main.layout[1] < 32){
             if ((2 * main.layout[0] / main.layout[1]) > 2) main.layout[1] = 2 * main.layout[1]
             else main.layout[0] = 2 * main.layout[0]
         }
@@ -142,6 +151,8 @@ ApplicationWindow {
     // Info text showing current tag
     Text {
       id: info_text
+      anchors.top: parent.top
+      anchors.topMargin: 20
       text: ""
       font.pixelSize: 24
       color: "white"

@@ -7,7 +7,6 @@ import hashlib
 from pathlib import Path
 from typing import List, Dict, Tuple
 from functools import cached_property
-from ipaddress import ip_address
 import psycopg2
 from .util import Archive, TagManager
 
@@ -40,16 +39,42 @@ class ArchiveBrowser(TagManager):
         cls, media_dir: Path, selected_tags: List[str] = None
     ) -> Dict[str, Tuple[str, ...]]:
         """Find archives and generate association map for each tag."""
-        # TODO handle tag selection
         meta_list: Dict[str, Tuple[str, ...]] = {}
         for archive in glob.glob(os.path.join(str(media_dir), "*.zip")):
             meta_data = Archive(archive).meta_file
-            for tag in "artist" in meta_data and meta_data["artist"] or []:
-                if tag in meta_list and archive not in meta_list[tag]:
-                    meta_list[tag] = (archive,) + meta_list[tag]
-                elif tag not in meta_list:
-                    meta_list[tag] = (archive,)
-        return meta_list
+            tags = (
+                meta_data["artist"]
+                if "artist" in meta_data and len(meta_data["artist"]) <= 3
+                else []
+            )
+            for tag in tags:
+                if "|" in tag:
+                    for sub_tag in tag.split("|"):
+                        sub_tag.strip()
+                        if (
+                            sub_tag in meta_list
+                            and archive not in meta_list[sub_tag]
+                        ):
+                            meta_list[sub_tag] = (archive,) + meta_list[
+                                sub_tag
+                            ]
+                        elif sub_tag not in meta_list:
+                            meta_list[sub_tag] = (archive,)
+                else:
+                    tag.strip()
+                    if tag in meta_list and archive not in meta_list[tag]:
+                        meta_list[tag] = (archive,) + meta_list[tag]
+                    elif tag not in meta_list:
+                        meta_list[tag] = (archive,)
+        return (
+            meta_list
+            if not selected_tags
+            else {
+                elem: meta_list[elem]
+                for elem in selected_tags
+                if elem in meta_list
+            }
+        )
 
     @property
     def count(self) -> int:
@@ -67,18 +92,24 @@ class ArchiveBrowser(TagManager):
 
     def hash(self, image_index: int = 0) -> str:
         """Return image hash at index."""
-        archive, file = self.files[image_index % self.count]
-        return hashlib.md5(Archive(archive).load_file(file)).hexdigest()
+        if self.count:
+            archive, file = self.files[image_index % self.count]
+            return hashlib.md5(Archive(archive).load_file(file)).hexdigest()
+        return ""
 
     def image(self, image_index: int = 0) -> bytes:
         """Return image at index."""
-        archive, file = self.files[image_index % self.count]
-        return Archive(archive).load_file(file)
+        if self.count:
+            archive, file = self.files[image_index % self.count]
+            return Archive(archive).load_file(file)
+        return bytes()
 
     def path(self, image_index: int = 0) -> str:
         """Return file path at index."""
-        archive, file = self.files[image_index % self.count]
-        return f"{archive}/{file}"
+        if self.count:
+            archive, file = self.files[image_index % self.count]
+            return f"{archive}/{file}"
+        return ""
 
 
 class BooruBrowser(TagManager):
@@ -96,7 +127,7 @@ class BooruBrowser(TagManager):
             dbname="danbooru2",
             user="lbl11",
             password="",
-            host=ip_address(media_host),
+            host=media_host,
         )
         state_data = TagManager.load_state(state_file)
         if str(media_host) not in state_data.tag_map:
@@ -116,20 +147,26 @@ class BooruBrowser(TagManager):
     @cached_property
     def files(self) -> List[Path]:
         """Extract archives associated with active tag."""
-        return self.files_at_tag(self.tag, self.value.count)
+        return self.files_at_tag(self.tag, self.value[1])
 
     def hash(self, image_index: int = 0) -> str:
         """Return image hash at index."""
-        with open(self.files[image_index % self.count], "rb") as file:
-            return hashlib.md5(file.read()).hexdigest()
+        if self.count:
+            with open(self.files[image_index % self.count], "rb") as file:
+                return hashlib.md5(file.read()).hexdigest()
+        return ""
 
     def image(self, image_index: int = 0) -> bytes:
         """Return image at index."""
-        return self.load_image(self.files[image_index % self.count])
+        if self.count:
+            return self.load_image(self.files[image_index % self.count])
+        bytes()
 
     def path(self, image_index: int = 0) -> Path:
         """Return file path at index."""
-        return self.files[image_index % self.count]
+        if self.count:
+            return self.files[image_index % self.count]
+        Path()
 
     @classmethod
     def load_image(cls, file_path: Path) -> bytes:
@@ -170,7 +207,7 @@ class BooruBrowser(TagManager):
         return tag_map
 
     def files_at_tag(
-        self, tag: str, count: int = 40, offset: int = 0
+        self, tag: str, count: str = "40", offset: str = "0"
     ) -> List[Path]:
         # TODO use named tuple when fetching from sql
         # from collections import namedtuple
@@ -183,8 +220,9 @@ class BooruBrowser(TagManager):
             cursor.execute(
                 "SELECT * FROM posts WHERE tag_index "
                 + f"@@ $$'{tag}'$$::tsquery "
-                + "AND 'jpg png'::tsvector @@ to_tsquery(file_ext)"
-                + f"AND file_size < 6400000 LIMIT {count} OFFSET {offset};"
+                + "AND 'jpg png jpeg JPG PNG JPEG'::tsvector @@ to_tsquery(file_ext) "
+                # + f"AND file_size < 6400000 LIMIT {count} OFFSET {offset} "
+                + f"ORDER BY id DESC;"
             )
             file_list = [
                 Path(
@@ -192,8 +230,7 @@ class BooruBrowser(TagManager):
                         self._data_root,
                         entry[7][0:2],
                         entry[7][2:4],
-                        entry[7],
-                        entry[30],
+                        f"{entry[7]}.{entry[30]}",
                     )
                 )
                 for entry in cursor.fetchall()

@@ -20,16 +20,6 @@ class PyViewer(QObject):
         """Load media path and refresh viewer."""
         self.imageloader = imageloader
 
-    @Property(int)
-    def length_images(self) -> int:
-        """Return number of available images."""
-        return self.imageloader.count if self.imageloader else 0
-
-    @Property(str)
-    def file_name(self) -> str:
-        """Return extracted image at index."""
-        return self.imageloader.tag if self.imageloader else ""
-
     @Slot(int)
     def hash(self, image_index: int = 0):
         """Print image hash at index."""
@@ -38,14 +28,17 @@ class PyViewer(QObject):
             + f" - {self.imageloader.hash(image_index)}"
         )
 
-    @Property(QByteArray)
-    def image(self) -> QByteArray:
-        """Return an image at index."""
-        return (
-            QByteArray(self.imageloader.image(self._image_index)).toBase64()
-            if self.imageloader
-            else QByteArray().toBase64()
-        )
+    @Slot(bool)
+    def update_tag_filter(self, filter_state: bool):
+        """Print image hash at index."""
+        self.imageloader.update_tag_filter(filter_state)
+        del self.imageloader.files
+
+    @Slot()
+    def undo_last_filter(self):
+        """Print image hash at index."""
+        self.imageloader.undo_last_filter()
+        del self.imageloader.files
 
     @Slot(int)
     def index(self, image_index: int) -> None:
@@ -57,6 +50,30 @@ class PyViewer(QObject):
         """Adjust tag index and clear image cache."""
         self.imageloader.adjust_index(direction)
         del self.imageloader.files
+
+    @Property(int)
+    def length_images(self) -> int:
+        """Return number of available images."""
+        return self.imageloader.count if self.imageloader else 0
+
+    @Property(str)
+    def file_name(self) -> str:
+        """Return extracted image at index."""
+        return self.imageloader.tag if self.imageloader else ""
+
+    @Property(str)
+    def status(self) -> str:
+        """Return extracted image at index."""
+        return self.imageloader.tag_filter_state if self.imageloader else ""
+
+    @Property(QByteArray)
+    def image(self) -> QByteArray:
+        """Return an image at index."""
+        return (
+            QByteArray(self.imageloader.image(self._image_index)).toBase64()
+            if self.imageloader
+            else QByteArray().toBase64()
+        )
 
 
 # =]
