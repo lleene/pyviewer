@@ -2,149 +2,241 @@
 
 import os
 import glob
-import threading
-
-
+import atexit
+import hashlib
+from pathlib import Path
+from typing import List, Dict, Tuple
+from functools import cached_property
 import psycopg2
-from PIL import Image
-from pyviewer import ArchiveManager, TagManager
+from .util import Archive, TagManager
 
 
-class ImageLoader(TagManager, ArchiveManager):
+class ArchiveBrowser(TagManager):
     """Archive manager for loading and organizing images with tag filters."""
 
-    def __init__(self):
-        """Create empty media handler."""
-        TagManager.__init__(self)
-        ArchiveManager.__init__(self)
-
-    def _generate_tag_map(self, media_object):
-        # TODO allow any tags to be matched
-        """Parse archives to derive a tag list with associated archives."""
-        meta_list = []
-        for archive in glob.glob(media_object + "/*.zip"):
-            meta_data = self._fetch_meta_file(archive)
-            meta_data.update({"path": archive})
-            meta_list.append(meta_data)
-        self._media_map = {
-            tag: [
-                match["path"]
-                for match in meta_list
-                if "path" in match and "artist" in match
-                and match["artist"][0] == tag
-            ]
-            for tag in {entry["artist"][0] for
-                        entry in meta_list if "artist" in entry}
-        }
-
-    def extract_current_index(
+    def __init__(
         self,
+        media_dir: Path,
+        state_file: Path = Path("pyviewer.state"),
+        tags: List[str] = [],
     ):
-        """Extract archives associated with active tag."""
-        file_list = []
-        for index, subdir in enumerate(self._subdirs):
-            if index >= len(self.media_list):
-                break
-            file_list.append(
-                [
-                    os.path.join(subdir.name, file_name)
-                    for file_name in self.extract_archive(
-                        self.media_list[index], subdir.name
-                    )
-                ]
+        """Create empty media handler."""
+        state_data = TagManager.load_state(state_file)
+        if str(media_dir) not in state_data.tag_map:
+            state_data.tag_map[str(media_dir)] = self.load_tag_map(
+                media_dir, selected_tags=tags
             )
-        return file_list
+        super().__init__(
+            tag_map=state_data.tag_map[str(media_dir)],
+            tag_filter=state_data.tag_filter,
+        )
+        atexit.register(
+            self.save_state, file_path=state_file, media_path=media_dir
+        )
 
-    def _check_archive(self, archive_path):
-        """Validate all images in archive."""
-        for file_path in self.extract_archive(
-            archive_path, self._subdirs[0].name
-        ):
-            full_path = os.path.join(self._subdirs[0].name, file_path)
-            with Image.open(full_path) as file:
-                file.verify()
-
-    def check_media(self):
-        """Check every archive in media directory for corrupt images."""
-        for index, tag in enumerate(self.tags):
-            self.index = index
-            for archive_path in self.media_list:
-                try:
-                    self._check_archive(archive_path)
-                except Image.UnidentifiedImageError as error:
-                    print("Cannot open {}: {}".format(archive_path, error))
+    @classmethod
+    def load_tag_map(
+        cls, media_dir: Path, selected_tags: List[str] = None
+    ) -> Dict[str, Tuple[str, ...]]:
+        """Find archives and generate association map for each tag."""
+        meta_list: Dict[str, Tuple[str, ...]] = {}
+        for archive in glob.glob(os.path.join(str(media_dir), "*.zip")):
+            meta_data = Archive(archive).meta_file
+            tags = (
+                meta_data["artist"]
+                if "artist" in meta_data and len(meta_data["artist"]) <= 3
+                else []
+            )
+            for tag in tags:
+                if "|" in tag:
+                    for sub_tag in tag.split("|"):
+                        sub_tag.strip()
+                        if (
+                            sub_tag in meta_list
+                            and archive not in meta_list[sub_tag]
+                        ):
+                            meta_list[sub_tag] = (archive,) + meta_list[
+                                sub_tag
+                            ]
+                        elif sub_tag not in meta_list:
+                            meta_list[sub_tag] = (archive,)
+                else:
+                    tag.strip()
+                    if tag in meta_list and archive not in meta_list[tag]:
+                        meta_list[tag] = (archive,) + meta_list[tag]
+                    elif tag not in meta_list:
+                        meta_list[tag] = (archive,)
+        return (
+            meta_list
+            if not selected_tags
+            else {
+                elem: meta_list[elem]
+                for elem in selected_tags
+                if elem in meta_list
+            }
+        )
 
     @property
-    def file_list(self):
-        """Return file list associated with current tag."""
+    def count(self) -> int:
+        """File count."""
+        return len(self.files)
+
+    @cached_property
+    def files(self) -> List[Tuple[Path, str]]:
+        """Extract archives associated with active tag."""
+        return [
+            (Path(path), elem)
+            for path in self.value
+            for elem in Archive(path).image_files
+        ]
+
+    def hash(self, image_index: int = 0) -> str:
+        """Return image hash at index."""
+        if self.count:
+            archive, file = self.files[image_index % self.count]
+            return hashlib.md5(Archive(archive).load_file(file)).hexdigest()
+        return ""
+
+    def image(self, image_index: int = 0) -> bytes:
+        """Return image at index."""
+        if self.count:
+            archive, file = self.files[image_index % self.count]
+            return Archive(archive).load_file(file)
+        return bytes()
+
+    def path(self, image_index: int = 0) -> str:
+        """Return file path at index."""
+        if self.count:
+            archive, file = self.files[image_index % self.count]
+            return f"{archive}/{file}"
         return ""
 
 
-class BooruLoader(TagManager):
+class BooruBrowser(TagManager):
     """Booru manager for loading and organizing images with tag filters."""
 
-    def __init__(self, host="127.0.0.1"):
+    def __init__(
+        self,
+        media_host: str = "127.0.0.1",
+        state_file: Path = Path("pyviewer.state"),
+        tags: List[str] = None,
+    ):
         """Connect to PG database on creation."""
-        self._data_root = ""
-        self._file_list = dict()
-        self.max_image_count = 40
-        self._worker = None
-        super().__init__()
+        self._data_root = "/mnt/media/Media/booru_archive/data/original"
         self.pgdb = psycopg2.connect(
-            dbname="danbooru2", user="lbl11", password="", host=host)
+            dbname="danbooru2",
+            user="lbl11",
+            password="",
+            host=media_host,
+        )
+        state_data = TagManager.load_state(state_file)
+        if str(media_host) not in state_data.tag_map:
+            state_data.tag_map[str(media_host)] = self.load_tag_map(
+                selected_tags=tags
+            )
+        super().__init__(
+            tag_map=state_data.tag_map[str(media_host)],
+            tag_filter=state_data.tag_filter,
+        )
 
-    def load_media(self, run_dir, media_object):
-        """Config root dir and load media map."""
-        self._data_root = media_object
-        super().load_media(run_dir, media_object)
-        tag_buffer = [self.tag_at(index)
-                      for index in list(range(self.index-1, self.index+2))]
-        self._update_buffer()
+    @property
+    def count(self) -> int:
+        """File count."""
+        return len(self.files)
 
-    def _generate_tag_map(self, media_object):
+    @cached_property
+    def files(self) -> List[Path]:
+        """Extract archives associated with active tag."""
+        return self.files_at_tag(self.tag, self.value[1])
+
+    def hash(self, image_index: int = 0) -> str:
+        """Return image hash at index."""
+        if self.count:
+            with open(self.files[image_index % self.count], "rb") as file:
+                return hashlib.md5(file.read()).hexdigest()
+        return ""
+
+    def image(self, image_index: int = 0) -> bytes:
+        """Return image at index."""
+        if self.count:
+            return self.load_image(self.files[image_index % self.count])
+        bytes()
+
+    def path(self, image_index: int = 0) -> Path:
+        """Return file path at index."""
+        if self.count:
+            return self.files[image_index % self.count]
+        Path()
+
+    @classmethod
+    def load_image(cls, file_path: Path) -> bytes:
+        """Load binary image data."""
+        with open(file_path, "rb") as file:
+            return file.read()
+
+    def _query_tag(self, tag: str) -> Tuple[str, ...]:
+        cursor = self.pgdb.cursor()
+        cursor.execute(
+            "SELECT * FROM tags WHERE name @@ $$'{}'$$".format(tag)
+            + " AND category = 1 AND post_count >= 10 LIMIT 5"
+        )
+        entry = cursor.fetchone()
+        cursor.close()
+        return (entry[0], entry[2]) if entry and entry[1] == tag else (0, 0)
+
+    def _get_selected_tags(
+        self, tags: List[str]
+    ) -> Dict[str, Tuple[str, ...]]:
+        return {elem: self._query_tag(elem) for elem in tags}
+
+    def load_tag_map(
+        self, selected_tags: List[str] = None
+    ) -> Dict[str, Tuple[str, ...]]:
         """Query booru for media tags."""
+        if selected_tags:
+            return self._get_selected_tags(selected_tags)
         cursor = self.pgdb.cursor()
         cursor.execute(
-            "SELECT * FROM tags WHERE category = 1 AND post_count >= 10 ;")
-        self._media_map = {artist[1]: {
-            "id": artist[0], "count": artist[2]} for
-            artist in cursor.fetchall()}
+            "SELECT * FROM tags WHERE category = 1 AND post_count >= 25 ;"
+        )
+        tag_map: Dict[str, Tuple[str, ...]] = {
+            str(artist[1]): (str(artist[0]), str(artist[2]))
+            for artist in cursor.fetchall()
+        }
         cursor.close()
+        return tag_map
 
-    def _update_buffer(self):
-        """Update the file list for list of tags."""
-        tag_buffer = [self.tag_at(index)
-                      for index in list(range(self.index-2, self.index+3))]
-        for tag in set(tag_buffer) - set(self._file_list.keys()):
-            self._file_list.update({tag: self.files_at_tag(tag)})
-
-    def files_at_tag(self, tag):
+    def files_at_tag(
+        self, tag: str, count: str = "40", offset: str = "0"
+    ) -> List[Path]:
+        # TODO use named tuple when fetching from sql
+        # from collections import namedtuple
+        # derive from table index names
+        # namedtuple('query',['name','age','DOB'])
         """Query media at target index."""
-        cursor = self.pgdb.cursor()
-        cursor.execute(
-            "SELECT * FROM posts WHERE tag_index "
-            + "@@ $$'{}'$$::tsquery ".format(tag)
-            + "AND 'jpg png'::tsvector @@ to_tsquery(file_ext)"
-            + "AND file_size < 6400000 LIMIT {};".format(self.max_image_count))
-        file_list = ["{}/{}/{}/{}.{}".format(self._data_root, entry[7][0:2],
-                                             entry[7][2:4], entry[7], entry[30])
-                     for entry in cursor.fetchall()]
-        cursor.close()
+        file_list = []
+        if tag:
+            cursor = self.pgdb.cursor()
+            cursor.execute(
+                "SELECT * FROM posts WHERE tag_index "
+                + f"@@ $$'{tag}'$$::tsquery "
+                + "AND 'jpg png jpeg JPG PNG JPEG'::tsvector @@ to_tsquery(file_ext) "
+                # + f"AND file_size < 6400000 LIMIT {count} OFFSET {offset} "
+                + f"ORDER BY id DESC;"
+            )
+            file_list = [
+                Path(
+                    os.path.join(
+                        self._data_root,
+                        entry[7][0:2],
+                        entry[7][2:4],
+                        f"{entry[7]}.{entry[30]}",
+                    )
+                )
+                for entry in cursor.fetchall()
+            ]
+            cursor.close()
         return file_list
 
-    def files_at_index(self, index):
-        """Query media at target index."""
-        return self.files_at_tag(self.tag_at(index))
 
-    @ property
-    def file_list(self):
-        """Query booru for media file list of current tag."""
-        if self._worker and self._worker.is_alive():
-            self._worker.join()
-        if self.tag in self._file_list.keys() and self._file_list[self.tag] != "":
-            file_list = self._file_list[self.tag]
-        else:
-            file_list = ""
-        self._worker = threading.Thread(target=self._update_buffer)
-        self._worker.start()
-        return file_list
+# =]

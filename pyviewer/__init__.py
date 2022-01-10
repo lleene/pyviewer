@@ -2,12 +2,15 @@
 
 __author__ = """Lieuwe Leene"""
 __email__ = "lieuwe@leene.dev"
-__version__ = "0.1.1"
+__version__ = "0.2.1"
 
-from .util import TagManager, ArchiveManager
-from .imageloader import ImageLoader, BooruLoader
-from .pyviewer import PyViewer, start_viewer
+from .util import TagManager
+from .imageloader import ArchiveBrowser, BooruBrowser
+from .pyviewer import PyViewer
 
-__all__ = ('ImageLoader', 'BooruLoader',
-           'ArchiveManager', 'PyViewer', 'start_viewer',
-           'TagManager')
+__all__ = (
+    "ArchiveBrowser",
+    "BooruBrowser",
+    "PyViewer",
+    "TagManager",
+)
