@@ -4,6 +4,7 @@ import os
 import glob
 import atexit
 import hashlib
+import logging
 from pathlib import Path
 from typing import List, Dict, Tuple
 from functools import cached_property
@@ -19,16 +20,18 @@ class ArchiveBrowser(TagManager):
         media_dir: Path,
         state_file: Path = Path("pyviewer.state"),
         tags: List[str] = [],
+        reload: bool = False,
     ):
         """Create empty media handler."""
         state_data = TagManager.load_state(state_file)
-        if str(media_dir) not in state_data.tag_map:
+        if str(media_dir) not in state_data.tag_map or reload:
             state_data.tag_map[str(media_dir)] = self.load_tag_map(
                 media_dir, selected_tags=tags
             )
         super().__init__(
             tag_map=state_data.tag_map[str(media_dir)],
             tag_filter=state_data.tag_filter,
+            tag_selection=tags,
         )
         atexit.register(
             self.save_state, file_path=state_file, media_path=media_dir
@@ -39,8 +42,10 @@ class ArchiveBrowser(TagManager):
         cls, media_dir: Path, selected_tags: List[str] = None
     ) -> Dict[str, Tuple[str, ...]]:
         """Find archives and generate association map for each tag."""
+        logging.info(f"Regenerating tag map for: {media_dir}")
         meta_list: Dict[str, Tuple[str, ...]] = {}
         for archive in glob.glob(os.path.join(str(media_dir), "*.zip")):
+            logging.info(f"Found archive: {archive}")
             meta_data = Archive(archive).meta_file
             tags = (
                 meta_data["artist"]
@@ -84,6 +89,7 @@ class ArchiveBrowser(TagManager):
     @cached_property
     def files(self) -> List[Tuple[Path, str]]:
         """Extract archives associated with active tag."""
+        logging.info(f"Loading archive: {self.value}.")
         return [
             (Path(path), elem)
             for path in self.value
@@ -120,6 +126,7 @@ class BooruBrowser(TagManager):
         media_host: str = "127.0.0.1",
         state_file: Path = Path("pyviewer.state"),
         tags: List[str] = None,
+        reload: bool = False,
     ):
         """Connect to PG database on creation."""
         self._data_root = "/mnt/media/Media/booru_archive/data/original"
@@ -130,13 +137,14 @@ class BooruBrowser(TagManager):
             host=media_host,
         )
         state_data = TagManager.load_state(state_file)
-        if str(media_host) not in state_data.tag_map:
+        if str(media_host) not in state_data.tag_map or reload:
             state_data.tag_map[str(media_host)] = self.load_tag_map(
                 selected_tags=tags
             )
         super().__init__(
             tag_map=state_data.tag_map[str(media_host)],
             tag_filter=state_data.tag_filter,
+            tag_selection=tags,
         )
 
     @property
@@ -160,13 +168,13 @@ class BooruBrowser(TagManager):
         """Return image at index."""
         if self.count:
             return self.load_image(self.files[image_index % self.count])
-        bytes()
+        return bytes()
 
     def path(self, image_index: int = 0) -> Path:
         """Return file path at index."""
         if self.count:
             return self.files[image_index % self.count]
-        Path()
+        return Path()
 
     @classmethod
     def load_image(cls, file_path: Path) -> bytes:
@@ -193,6 +201,7 @@ class BooruBrowser(TagManager):
         self, selected_tags: List[str] = None
     ) -> Dict[str, Tuple[str, ...]]:
         """Query booru for media tags."""
+        logging.info(f"Regenerating tag map for {self.pgdb.info}.")
         if selected_tags:
             return self._get_selected_tags(selected_tags)
         cursor = self.pgdb.cursor()
@@ -214,6 +223,7 @@ class BooruBrowser(TagManager):
         # derive from table index names
         # namedtuple('query',['name','age','DOB'])
         """Query media at target index."""
+        logging.info(f"SQL query for files matching {tag}.")
         file_list = []
         if tag:
             cursor = self.pgdb.cursor()

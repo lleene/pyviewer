@@ -17,9 +17,9 @@ class Archive(ZipFile):
             return file.read()
 
     @property
-    def meta_file(self) -> dict:
+    def meta_file(self) -> Dict[str, str]:
         """Fetch the meta file from archive."""
-        meta = [
+        meta: List[Dict[str, str]] = [
             json.loads(self.load_file(elem.filename))
             for elem in self.infolist()
             if elem.filename[-13:] == "metadata.json"
@@ -67,9 +67,11 @@ class TagManager:
         self,
         tag_map: Dict[str, Tuple[str, ...]],
         tag_filter: List[FilterEntry],
+        tag_selection: List[str] = None,
     ):
         """Initialize with empty struct since loading is expensive."""
         self.index = 0
+        self._selection = tag_selection
         self._tag_map = tag_map
         self._filter = [FilterEntry(*elem) for elem in tag_filter]
         self._tagstack: List[FilterEntry] = []
@@ -119,9 +121,14 @@ class TagManager:
     @property
     def tags(self) -> List[str]:
         """Return all tags derived from media directory."""
-        self._tag_buffer = [
-            key for key in self._tag_map if key not in self.filter
-        ]
+        if self._selection:
+            self._tag_buffer = [
+                key for key in self._selection if key in self._tag_map
+            ]
+        else:
+            self._tag_buffer = [
+                key for key in self._tag_map if key not in self.filter
+            ]
         return self._tag_buffer
 
     @property
