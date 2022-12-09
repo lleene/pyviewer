@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 from functools import cached_property
 import psycopg2
+from io import BytesIO
+from PIL import Image
 from .util import Archive, TagManager
 
 
@@ -80,6 +82,33 @@ class ArchiveBrowser(TagManager):
                 if elem in meta_list
             }
         )
+
+    def validate_all(self) -> bool:
+        """Check all archives for broken images."""
+        return any(self.validate_tag(tag) for tag in self._tag_map.keys())
+
+    def validate_tag(self, tag_string: str) -> bool:
+        """Check for any broken archives under tag."""
+        error_flag = False
+        logging.info(f"Validating archives: {tag_string}")
+        for path in self._tag_map[tag_string]:
+            archive = Archive(path)
+            if any(
+                self.validate_image(archive.load_file(file))
+                for file in archive.image_files
+            ):
+                logging.warning(f"Found broken image: {path}")
+                error_flag = True
+        return error_flag
+
+    @classmethod
+    def validate_image(cls, image_data: bytes) -> bool:
+        """Check if image data is broken."""
+        try:
+            Image.open(BytesIO(image_data)).verify()
+        except Exception:
+            return False
+        return True
 
     @property
     def count(self) -> int:
